@@ -20,9 +20,13 @@ def estimate_tokens(payload: dict[str, Any] | str) -> int:
     return max(1, round(len(text) / 4))
 
 
-def evaluate_token_budget(estimated_tokens: int, max_tokens: int, operation_id: str = "") -> str | None:
+def evaluate_token_budget(
+    estimated_tokens: int, max_tokens: int, operation_id: str = ""
+) -> str | None:
     """Check if token count exceeds budget and return an advisory warning message if so."""
     if estimated_tokens > max_tokens:
         prefix = f"Operation '{operation_id}' " if operation_id else "Chunk "
-        return f"{prefix}({estimated_tokens} tokens) exceeds configured budget of {max_tokens} tokens"
+        return (
+            f"{prefix}({estimated_tokens} tokens) exceeds configured budget of {max_tokens} tokens"
+        )
     return None

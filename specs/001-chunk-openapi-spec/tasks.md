@@ -9,9 +9,9 @@
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-**Purpose**: Project initialization, Poetry dependency setup, directory skeleton, and test fixture provisioning.
+**Purpose**: Project initialization, uv dependency setup, directory skeleton, and test fixture provisioning.
 
-- [X] T001 Initialize Poetry package configuration in `pyproject.toml` with dependencies (`click>=8.1`, `prance[osv]>=26.7`, `pyyaml>=6.0`, `pydantic>=2.0`) and development dependencies (`pytest>=8.0`).
+- [X] T001 Initialize package configuration in `pyproject.toml` with dependencies (`click>=8.1`, `prance[osv]>=26.7`, `pyyaml>=6.0`, `pydantic>=2.0`) and development dependencies (`pytest>=8.0`).
 - [X] T002 Create package and test directory layout per implementation plan (`src/specprobe/chunker/`, `src/specprobe/formatters/`, `tests/fixtures/`, `tests/unit/`, `tests/integration/`).
 - [X] T003 [P] Provision test fixtures in `tests/fixtures/`:
   - `tests/fixtures/valid_openapi_30.yaml`: Baseline OpenAPI 3.0 document with multiple HTTP verbs (`GET`, `POST`, `DELETE`), status responses, and component schemas.
@@ -124,7 +124,7 @@
 
 - [X] T023 [P] Implement scale check integration test in `tests/integration/test_scale_streaming.py` asserting that streaming chunking on `tests/fixtures/large_public_spec.json` (> 500 operations) completes in < 2.0 seconds with bounded memory (verified during schema-depth benchmark: 594 ops in 0.275s).
 - [X] T024 Execute and verify all quickstart validation scenarios documented in `specs/001-chunk-openapi-spec/quickstart.md`.
-- [X] T025 Run full automated test suite (`poetry run pytest -v`) and verify 100% test pass rate across unit and integration tests.
+- [X] T025 Run full automated test suite (`uv run pytest -v`) and verify 100% test pass rate across unit and integration tests.
 
 ---
 

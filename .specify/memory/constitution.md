@@ -1,17 +1,16 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-- Version change: Unversioned Template -> 1.0.0 (Initial Ratification)
-- Principle modifications:
-  * [PRINCIPLE_1_NAME] -> I. Clear Idiomatic Code Over Abstractions
-  * [PRINCIPLE_2_NAME] -> II. Deterministic Artifact Generation (Zero-LLM)
-  * [PRINCIPLE_3_NAME] -> III. Local-First Privacy & Compute (Local Embeddings & Reranking)
-  * [PRINCIPLE_4_NAME] -> IV. Unified Gateway, Local-Default LLM & Disk Caching
-  * [PRINCIPLE_5_NAME] -> V. Strict Pydantic Validation, Single Retry & Operation Traceability
-  * Added: VI. Comprehensive Testing (Every Feature Ships with Tests)
-- Added sections:
-  * Technology Stack & Tooling Constraints (Section 2)
-  * Development Workflow & Quality Gates (Section 3)
+- Version change: 1.0.0 -> 1.1.0 (Tooling Stack Amendment)
+- Rationale: Replaced Poetry with uv as the mandatory build tool, virtual environment manager,
+  and dependency resolver. Under the Constitution's Versioning Policy, Core Principles I-VI
+  and architectural determinism/privacy guarantees remain unchanged; this amends tooling requirements
+  and workflow quality gates, qualifying as a MINOR version bump.
+- Technology Stack & Tooling Constraints modifications:
+  * Dependency & Package Management: Replaced Poetry mandate and poetry.lock with uv and uv.lock.
+- Development Workflow & Quality Gates modifications:
+  * Pre-Merge Test Execution: Updated quality gate command from `poetry run pytest` to `uv run pytest`.
+- Added sections: None
 - Removed sections: None
 - Deferred items / TODOs: None
 -->
@@ -75,7 +74,7 @@ Every feature, command, and module MUST ship with comprehensive automated test c
 SpecProbe development and execution environment is strictly standardized on the following tooling:
 
 - **Runtime**: Python 3.11 or higher (`>= 3.11`). Modern language capabilities, built-in structural pattern matching, and comprehensive type hinting must be utilized.
-- **Dependency & Package Management**: Poetry is the mandatory build tool, virtual environment manager, and dependency resolver. All dependencies must be locked in `poetry.lock`.
+- **Dependency & Package Management**: uv is the mandatory build tool, virtual environment manager, and dependency resolver. All dependencies must be locked in `uv.lock`.
 - **CLI Framework**: Click (`click`) is the standard CLI framework for all user-facing commands, argument validation, and subcommands.
 - **Testing Framework**: pytest (`pytest`) is the standard testing engine for unit, functional, and integration tests.
 - **LLM Gateway**: LiteLLM (`litellm`) provides uniform routing, parameter mapping, and local/cloud provider abstraction.
@@ -86,7 +85,7 @@ SpecProbe development and execution environment is strictly standardized on the 
 
 All contributions and feature workflows MUST satisfy the following quality gates:
 
-- **Pre-Merge Test Execution**: `poetry run pytest` must execute and pass 100% of test cases cleanly.
+- **Pre-Merge Test Execution**: `uv run pytest` must execute and pass 100% of test cases cleanly.
 - **Deterministic Pipeline Verification**: Exporters for Postman collections and `.http` files must pass verification tests without invoking network requests or mock LLM sessions.
 - **Local Privacy Verification**: Embedding and reranking tests must confirm that no remote outbound sockets are opened.
 - **Cache Hit Integrity**: Disk-based LLM caching logic must be verified for exact hit retrieval and serialization correctness.
@@ -105,4 +104,4 @@ This Constitution is the supreme design and implementation policy for SpecProbe.
   - **PATCH**: Non-semantic clarifications, typo corrections, and minor wording refinements.
 - **Compliance Review**: Every implementation plan (`plan.md`) and task breakdown (`tasks.md`) produced by Spec Kit workflows must explicitly verify compliance with these principles before code execution begins.
 
-**Version**: 1.0.0 | **Ratified**: 2026-09-18 | **Last Amended**: 2026-09-18
+**Version**: 1.1.0 | **Ratified**: 2026-09-18 | **Last Amended**: 2026-09-19

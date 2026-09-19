@@ -58,7 +58,7 @@ The `specprobe chunk` command decomposes an OpenAPI 3.0 or 3.1 specification (YA
 | **Principle IV: LLM Gateway & Caching** | All LLM calls route through LiteLLM | **PASS (N/A)** | No LLM calls in this feature. |
 | **Principle V: Pydantic Validation** | Structured models validated with Pydantic | **PASS** | `ChunkMetadata` and `ChunkingStats` modeled and validated with Pydantic schemas; operation IDs explicitly named in all generated chunks. |
 | **Principle VI: Comprehensive Testing** | Every feature ships with automated tests | **PASS** | Test plan includes unit, integration, edge-case, and scale checks with pytest. |
-| **Tech Stack Standards** | Python 3.11+, Poetry, click, pytest | **PASS** | Standardized on Poetry 2.4+ and Click CLI. |
+| **Tech Stack Standards** | Python 3.11+, uv, click, pytest | **PASS** | Standardized on uv and Click CLI. |
 
 ---
 
@@ -82,7 +82,7 @@ specs/001-chunk-openapi-spec/
 ### Source Code (repository root)
 
 ```text
-pyproject.toml           # Poetry package and dependency configuration
+pyproject.toml           # Python package and dependency configuration
 src/
 └── specprobe/
     ├── __init__.py

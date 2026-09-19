@@ -6,15 +6,15 @@ This guide describes the end-to-end validation steps and commands to verify that
 
 ## 1. Prerequisites & Setup
 
-Ensure Python 3.11+ and Poetry are installed, and project dependencies are resolved:
+Ensure Python 3.11+ and uv are installed, and project dependencies are resolved:
 
 ```bash
 # Verify environment
 python --version   # Must be >= 3.11
-poetry --version
+uv --version
 
 # Install dependencies and virtual environment
-poetry install
+uv sync
 ```
 
 ---
@@ -25,7 +25,7 @@ poetry install
 Verify that a standard OpenAPI 3.0 specification is cleanly split into one line per operation chunk.
 
 ```bash
-poetry run specprobe chunk tests/fixtures/valid_openapi_30.yaml > output.jsonl
+uv run specprobe chunk tests/fixtures/valid_openapi_30.yaml > output.jsonl
 ```
 **Expected Outcome**:
 - `output.jsonl` contains exactly one JSON object per operation line.
@@ -42,14 +42,14 @@ poetry run specprobe chunk tests/fixtures/valid_openapi_30.yaml > output.jsonl
 Verify that `--op` isolates a single operation and prints formatted JSON.
 
 ```bash
-poetry run specprobe chunk tests/fixtures/valid_openapi_30.yaml --op getUserById
+uv run specprobe chunk tests/fixtures/valid_openapi_30.yaml --op getUserById
 ```
 **Expected Outcome**:
 - Outputs a single pretty-printed JSON chunk to `stdout`.
 - Exit code is `0`.
 - If an invalid operation ID is passed:
   ```bash
-  poetry run specprobe chunk tests/fixtures/valid_openapi_30.yaml --op nonExistentOp
+  uv run specprobe chunk tests/fixtures/valid_openapi_30.yaml --op nonExistentOp
   ```
   Exits with code `1` and outputs `Error: Operation ID 'nonExistentOp' not found in specification.` to `stderr`.
 
@@ -59,7 +59,7 @@ poetry run specprobe chunk tests/fixtures/valid_openapi_30.yaml --op getUserById
 Verify that `--stats` displays human-readable summary metrics without streaming chunks.
 
 ```bash
-poetry run specprobe chunk tests/fixtures/valid_openapi_30.yaml --stats
+uv run specprobe chunk tests/fixtures/valid_openapi_30.yaml --stats
 ```
 **Expected Outcome**:
 - Emits formatted text table showing total operations, min/max/median/average chunk tokens, and warnings list.
@@ -72,7 +72,7 @@ poetry run specprobe chunk tests/fixtures/valid_openapi_30.yaml --stats
 Verify that self-referencing and mutual circular schema references resolve cleanly without recursion errors.
 
 ```bash
-poetry run specprobe chunk tests/fixtures/circular_spec.yaml
+uv run specprobe chunk tests/fixtures/circular_spec.yaml
 ```
 **Expected Outcome**:
 - Executes without `RecursionError` or infinite loop.
@@ -84,7 +84,7 @@ poetry run specprobe chunk tests/fixtures/circular_spec.yaml
 Verify that polymorphic compositions and path-level parameters are properly extracted.
 
 ```bash
-poetry run specprobe chunk tests/fixtures/composition_31.json --op createCompositeItem
+uv run specprobe chunk tests/fixtures/composition_31.json --op createCompositeItem
 ```
 **Expected Outcome**:
 - Path-level parameters are present in the operation chunk's parameter list.
@@ -97,7 +97,7 @@ poetry run specprobe chunk tests/fixtures/composition_31.json --op createComposi
 Verify that legacy Swagger 2.0 documents are rejected upfront.
 
 ```bash
-poetry run specprobe chunk tests/fixtures/swagger_20.json
+uv run specprobe chunk tests/fixtures/swagger_20.json
 ```
 **Expected Outcome**:
 - Command exits with status code `1`.
@@ -109,7 +109,7 @@ poetry run specprobe chunk tests/fixtures/swagger_20.json
 Verify that external file references produce non-fatal warnings with exit code 0.
 
 ```bash
-poetry run specprobe chunk tests/fixtures/external_ref_spec.yaml
+uv run specprobe chunk tests/fixtures/external_ref_spec.yaml
 ```
 **Expected Outcome**:
 - Warning printed to `stderr` indicating unsupported external `$ref`.
@@ -122,7 +122,7 @@ poetry run specprobe chunk tests/fixtures/external_ref_spec.yaml
 Verify performance and memory efficiency against a full-sized real-world API document.
 
 ```bash
-poetry run specprobe chunk tests/fixtures/large_public_spec.json --stats
+uv run specprobe chunk tests/fixtures/large_public_spec.json --stats
 ```
 **Expected Outcome**:
 - Processes hundreds of operations in under 2 seconds.
@@ -135,6 +135,6 @@ poetry run specprobe chunk tests/fixtures/large_public_spec.json --stats
 Run all unit, integration, and fixture tests via `pytest`:
 
 ```bash
-poetry run pytest -v
+uv run pytest -v
 ```
 All tests must pass 100% per Constitution Principle VI.

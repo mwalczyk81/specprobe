@@ -1,6 +1,7 @@
 """Domain models and Pydantic schemas for SpecProbe chunks and statistics."""
 
 from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -17,7 +18,9 @@ class ChunkMetadata(BaseModel):
         default_factory=list,
         description="Resolved security requirements (operation-level or global fallback)",
     )
-    deprecated: bool = Field(default=False, description="Flag indicating if operation is deprecated")
+    deprecated: bool = Field(
+        default=False, description="Flag indicating if operation is deprecated"
+    )
     source_title: str = Field(default="Untitled API", description="Source specification title")
     source_version: str = Field(default="0.0.0", description="Source specification version")
     estimated_tokens: int = Field(default=0, description="Approximate token count of chunk")
@@ -33,7 +36,9 @@ class OperationChunk(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     metadata: ChunkMetadata = Field(description="Operational metadata block")
-    operation: dict[str, Any] = Field(description="Normalized operation definition with merged parameters")
+    operation: dict[str, Any] = Field(
+        description="Normalized operation definition with merged parameters"
+    )
     components: dict[str, Any] = Field(
         default_factory=dict,
         description="Pruned components dictionary containing only referenced schemas",

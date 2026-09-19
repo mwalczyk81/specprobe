@@ -1,10 +1,11 @@
 """OpenAPI specification loader and validation module."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import Any
-import yaml
+
 import prance
+import yaml
 from prance.util.fs import canonical_filename
 
 
@@ -23,7 +24,8 @@ def load_openapi_spec(spec_path_or_content: str | Path) -> dict[str, Any]:
     content: str
 
     if isinstance(spec_path_or_content, Path) or (
-        isinstance(spec_path_or_content, str) and not spec_path_or_content.strip().startswith(("{", "openapi:", "swagger:"))
+        isinstance(spec_path_or_content, str)
+        and not spec_path_or_content.strip().startswith(("{", "openapi:", "swagger:"))
     ):
         raw_path = str(spec_path_or_content)
         if raw_path == "-":
@@ -37,7 +39,9 @@ def load_openapi_spec(spec_path_or_content: str | Path) -> dict[str, Any]:
             try:
                 content = path_obj.read_text(encoding="utf-8")
             except Exception as exc:
-                raise SpecLoadError(f"Failed to read specification file '{raw_path}': {exc}") from exc
+                raise SpecLoadError(
+                    f"Failed to read specification file '{raw_path}': {exc}"
+                ) from exc
     else:
         content = str(spec_path_or_content)
 
@@ -58,11 +62,14 @@ def load_openapi_spec(spec_path_or_content: str | Path) -> dict[str, Any]:
     # Validation of OpenAPI version field
     openapi_version = raw_dict.get("openapi")
     if not openapi_version or not isinstance(openapi_version, str):
-        raise SpecLoadError("Missing 'openapi' version field. SpecProbe requires OpenAPI 3.0 or 3.1.")
+        raise SpecLoadError(
+            "Missing 'openapi' version field. SpecProbe requires OpenAPI 3.0 or 3.1."
+        )
 
     if not (openapi_version.startswith("3.0.") or openapi_version.startswith("3.1.")):
         raise SpecLoadError(
-            f"Unsupported OpenAPI version '{openapi_version}'. SpecProbe requires OpenAPI 3.0 or 3.1."
+            f"Unsupported OpenAPI version '{openapi_version}'. "
+            "SpecProbe requires OpenAPI 3.0 or 3.1."
         )
 
     # Validate using prance.BaseParser without inlining references
