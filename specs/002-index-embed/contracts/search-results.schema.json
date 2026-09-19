@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SearchResults",
+  "description": "Output schema for specprobe search CLI command",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "operationId",
+      "path",
+      "method",
+      "score",
+      "tags",
+      "summary",
+      "source_title",
+      "source_version"
+    ],
+    "properties": {
+      "operationId": {
+        "type": "string",
+        "description": "Unique OpenAPI operationId"
+      },
+      "path": {
+        "type": "string",
+        "description": "Endpoint URI template"
+      },
+      "method": {
+        "type": "string",
+        "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "TRACE"],
+        "description": "HTTP method in uppercase"
+      },
+      "score": {
+        "type": "number",
+        "description": "Ordinal relevance score valid only within the current search invocation"
+      },
+      "tags": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Categorical tags assigned to the operation"
+      },
+      "summary": {
+        "type": ["string", "null"],
+        "description": "Short human-readable summary of the operation"
+      },
+      "source_title": {
+        "type": "string",
+        "description": "Title of the originating API specification"
+      },
+      "source_version": {
+        "type": "string",
+        "description": "Version of the originating API specification"
+      },
+      "chunk": {
+        "type": ["object", "null"],
+        "description": "Full OperationChunk data payload (only populated when --full flag is used)"
+      }
+    },
+    "additionalProperties": false
+  }
+}

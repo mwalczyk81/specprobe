@@ -2,11 +2,12 @@
 
 import copy
 import re
-from typing import Any, Generator
+from collections.abc import Generator
+from typing import Any
+
 from specprobe.chunker.models import ChunkMetadata, OperationChunk
 from specprobe.chunker.pruner import SchemaPruner
 from specprobe.chunker.tokens import estimate_tokens
-
 
 HTTP_METHODS = {"get", "post", "put", "delete", "patch", "options", "head", "trace"}
 

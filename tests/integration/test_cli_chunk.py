@@ -2,7 +2,9 @@
 
 import json
 from pathlib import Path
+
 from click.testing import CliRunner
+
 from specprobe.cli import cli
 
 
@@ -44,7 +46,9 @@ def test_cli_chunk_circular_spec(circular_spec_path: Path) -> None:
 
 
 def test_cli_chunk_depth_capping(deep_chain_spec_path: Path) -> None:
-    """Verify default schema depth 2 truncates deeper levels and reports warnings in chunk metadata."""
+    """Verify default schema depth 2 truncates deeper levels and reports warnings in chunk
+    metadata.
+    """
     runner = CliRunner()
     result = runner.invoke(cli, ["chunk", str(deep_chain_spec_path)])
 
@@ -61,7 +65,10 @@ def test_cli_chunk_depth_capping(deep_chain_spec_path: Path) -> None:
     # Warning attached to chunk metadata
     warnings = chunk["metadata"]["warnings"]
     assert len(warnings) == 1
-    assert "Schema 'Level3' at depth 3 exceeds schema depth limit of 2 and was truncated." in warnings[0]
+    assert (
+        "Schema 'Level3' at depth 3 exceeds schema depth limit of 2 and was truncated."
+        in warnings[0]
+    )
 
 
 def test_cli_chunk_schema_depth_flag(deep_chain_spec_path: Path) -> None:
@@ -76,4 +83,3 @@ def test_cli_chunk_schema_depth_flag(deep_chain_spec_path: Path) -> None:
     schemas = chunk["components"]["schemas"]
     assert {"Level1", "Level2", "Level3", "Level4"} <= set(schemas.keys())
     assert chunk["metadata"]["warnings"] == []
-

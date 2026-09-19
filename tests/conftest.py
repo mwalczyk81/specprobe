@@ -1,6 +1,7 @@
 """Global pytest fixtures and configuration for SpecProbe tests."""
 
 from pathlib import Path
+
 import pytest
 
 
@@ -50,4 +51,3 @@ def large_public_spec_path(fixtures_dir: Path) -> Path:
 def deep_chain_spec_path(fixtures_dir: Path) -> Path:
     """Return the path to the deep schema chain YAML fixture."""
     return fixtures_dir / "deep_chain_spec.yaml"
-

@@ -23,7 +23,9 @@ class SchemaPruner:
 
     def _record_external_ref_warning(self, ref: str) -> None:
         """Record non-fatal external reference warning and write advisory warning to stderr."""
-        warning_msg = f"External reference '{ref}' is unsupported and was preserved without expansion."
+        warning_msg = (
+            f"External reference '{ref}' is unsupported and was preserved without expansion."
+        )
         if warning_msg not in self.warnings:
             self.warnings.append(warning_msg)
         if self.emit_stderr and warning_msg not in self._emitted_stderr_warnings:
@@ -44,7 +46,8 @@ class SchemaPruner:
                 self._extract_refs_from_node(item, refs)
 
     def prune_for_operation(self, operation: dict[str, Any]) -> dict[str, Any]:
-        """Collect and return component schemas transitively referenced by the operation up to max_depth.
+        """Collect and return component schemas transitively referenced by the operation up to
+        max_depth.
 
         Uses a visited-set guard to handle circular and self-referencing schemas safely,
         terminating recursion at cycle boundaries while retaining local $ref pointers.
@@ -65,11 +68,12 @@ class SchemaPruner:
 
         for ref in initial_refs:
             if ref.startswith(self.SCHEMA_PREFIX):
-                schema_name = ref[len(self.SCHEMA_PREFIX):].split("/")[0]
+                schema_name = ref[len(self.SCHEMA_PREFIX) :].split("/")[0]
                 # Direct references from operation are at depth 1
                 if self.max_depth is not None and 1 > self.max_depth:
                     warning_msg = (
-                        f"Schema '{schema_name}' at depth 1 exceeds schema depth limit of {self.max_depth} and was truncated."
+                        f"Schema '{schema_name}' at depth 1 exceeds "
+                        f"schema depth limit of {self.max_depth} and was truncated."
                     )
                     if warning_msg not in self.warnings:
                         self.warnings.append(warning_msg)
@@ -95,7 +99,7 @@ class SchemaPruner:
 
                 for ref in child_refs:
                     if ref.startswith(self.SCHEMA_PREFIX):
-                        child_name = ref[len(self.SCHEMA_PREFIX):].split("/")[0]
+                        child_name = ref[len(self.SCHEMA_PREFIX) :].split("/")[0]
                         child_depth = depth + 1
 
                         if child_name in visited or child_name in enqueued:

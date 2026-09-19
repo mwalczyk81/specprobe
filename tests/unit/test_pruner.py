@@ -1,6 +1,7 @@
 """Unit tests for SchemaPruner with visited-set cycle detection."""
 
 from pathlib import Path
+
 from specprobe.chunker.loader import load_openapi_spec
 from specprobe.chunker.pruner import SchemaPruner
 
@@ -88,7 +89,10 @@ def test_prune_depth_capping_default(deep_chain_spec_path: Path) -> None:
 
     # Warning naming truncated schema and its depth
     assert len(pruner.warnings) == 1
-    assert "Schema 'Level3' at depth 3 exceeds schema depth limit of 2 and was truncated." in pruner.warnings[0]
+    assert (
+        "Schema 'Level3' at depth 3 exceeds schema depth limit of 2 and was truncated."
+        in pruner.warnings[0]
+    )
 
 
 def test_prune_depth_capping_custom_depth(deep_chain_spec_path: Path) -> None:
@@ -109,5 +113,7 @@ def test_prune_depth_capping_custom_depth(deep_chain_spec_path: Path) -> None:
     assert "Level1" in pruned_shallow
     assert "Level2" not in pruned_shallow
     assert len(pruner_shallow.warnings) == 1
-    assert "Schema 'Level2' at depth 2 exceeds schema depth limit of 1 and was truncated." in pruner_shallow.warnings[0]
-
+    assert (
+        "Schema 'Level2' at depth 2 exceeds schema depth limit of 1 and was truncated."
+        in pruner_shallow.warnings[0]
+    )

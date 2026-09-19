@@ -1,0 +1,129 @@
+openapi: "3.0.3"
+info:
+  title: "Order Management API"
+  version: "1.0.0"
+  description: "API with near-duplicate operation summaries to benchmark dense vs hybrid vs hybrid-rerank retrieval."
+paths:
+  /orders/{orderId}:
+    get:
+      operationId: "getOrderDetails"
+      summary: "Get order details"
+      description: "Retrieve comprehensive order information including line items, payment status, and customer details."
+      tags:
+        - "orders"
+      parameters:
+        - name: "orderId"
+          in: "path"
+          required: true
+          description: "Unique order identifier"
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "Full order details"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+  /orders/{orderId}/status:
+    get:
+      operationId: "getOrderTrackingStatus"
+      summary: "Get order status"
+      description: "Retrieve shipment delivery status and carrier tracking updates for an order."
+      tags:
+        - "orders"
+      parameters:
+        - name: "orderId"
+          in: "path"
+          required: true
+          description: "Unique order identifier"
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "Order tracking status"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderStatus"
+
+  /orders/{orderId}/items:
+    get:
+      operationId: "getOrderItems"
+      summary: "Get order items"
+      description: "Retrieve the list of catalog items and quantities purchased within an order."
+      tags:
+        - "orders"
+      parameters:
+        - name: "orderId"
+          in: "path"
+          required: true
+          description: "Unique order identifier"
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "List of order items"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                items:
+                  $ref: "#/components/schemas/OrderItem"
+
+  /customers/{customerId}/orders:
+    get:
+      operationId: "getCustomerOrders"
+      summary: "Get customer orders"
+      description: "Retrieve order history and previous purchases for a specific customer account."
+      tags:
+        - "customers"
+      parameters:
+        - name: "customerId"
+          in: "path"
+          required: true
+          description: "Unique customer identifier"
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "Customer orders list"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                items:
+                  $ref: "#/components/schemas/Order"
+
+components:
+  schemas:
+    Order:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+        totalAmount:
+          type: "number"
+        status:
+          type: "string"
+    OrderStatus:
+      type: "object"
+      properties:
+        orderId:
+          type: "string"
+        carrier:
+          type: "string"
+        trackingNumber:
+          type: "string"
+        delivered:
+          type: "boolean"
+    OrderItem:
+      type: "object"
+      properties:
+        itemId:
+          type: "string"
+        name:
+          type: "string"
+        quantity:
+          type: "integer"

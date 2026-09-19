@@ -1,7 +1,8 @@
 """Newline-delimited JSON (JSONL) stream formatting module."""
 
 import json
-from typing import Iterable, Generator
+from collections.abc import Generator, Iterable
+
 from specprobe.chunker.models import OperationChunk
 
 

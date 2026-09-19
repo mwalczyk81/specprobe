@@ -2,7 +2,9 @@
 
 import json
 from pathlib import Path
+
 from click.testing import CliRunner
+
 from specprobe.cli import cli
 
 
@@ -42,7 +44,9 @@ def test_cli_chunk_op_synthesized_id(valid_openapi_30_path: Path) -> None:
 def test_cli_chunk_op_not_found(valid_openapi_30_path: Path) -> None:
     """Verify --op exits with code 1 and descriptive error when operationId is not found."""
     runner = CliRunner()
-    result = runner.invoke(cli, ["chunk", str(valid_openapi_30_path), "--op", "unknown_operation_123"])
+    result = runner.invoke(
+        cli, ["chunk", str(valid_openapi_30_path), "--op", "unknown_operation_123"]
+    )
 
     assert result.exit_code == 1
     assert "not found" in result.output.lower()

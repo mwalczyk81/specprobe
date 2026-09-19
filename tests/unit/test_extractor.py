@@ -1,8 +1,9 @@
 """Unit tests for OperationExtractor parameter merging, security, and operationId synthesis."""
 
 from pathlib import Path
-from specprobe.chunker.loader import load_openapi_spec
+
 from specprobe.chunker.extractor import OperationExtractor
+from specprobe.chunker.loader import load_openapi_spec
 
 
 def test_path_parameter_inheritance(valid_openapi_30_path: Path) -> None:
@@ -12,7 +13,9 @@ def test_path_parameter_inheritance(valid_openapi_30_path: Path) -> None:
     chunks = list(extractor.extract_operations())
 
     # Find GET /pets/{petId}
-    pet_chunk = next(c for c in chunks if c.metadata.path == "/pets/{petId}" and c.metadata.method == "GET")
+    pet_chunk = next(
+        c for c in chunks if c.metadata.path == "/pets/{petId}" and c.metadata.method == "GET"
+    )
     params = pet_chunk.operation.get("parameters", [])
     pet_id_param = next((p for p in params if p.get("name") == "petId"), None)
 
@@ -27,7 +30,9 @@ def test_operation_parameter_override(composition_31_path: Path) -> None:
     extractor = OperationExtractor(spec)
     chunks = list(extractor.extract_operations())
 
-    post_chunk = next(c for c in chunks if c.metadata.path == "/items/{itemId}" and c.metadata.method == "POST")
+    post_chunk = next(
+        c for c in chunks if c.metadata.path == "/items/{itemId}" and c.metadata.method == "POST"
+    )
     params = post_chunk.operation.get("parameters", [])
 
     # Both itemId and X-Trace-Id should be present
@@ -60,6 +65,8 @@ def test_operation_id_synthesis(valid_openapi_30_path: Path) -> None:
     chunks = list(extractor.extract_operations())
 
     # DELETE /pets/{petId} has no operationId in the spec
-    delete_pet = next(c for c in chunks if c.metadata.path == "/pets/{petId}" and c.metadata.method == "DELETE")
+    delete_pet = next(
+        c for c in chunks if c.metadata.path == "/pets/{petId}" and c.metadata.method == "DELETE"
+    )
     assert delete_pet.metadata.operationId == "delete_pets_pet_id"
     assert delete_pet.metadata.deprecated is True
