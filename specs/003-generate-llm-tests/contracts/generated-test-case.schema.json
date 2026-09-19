@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GeneratedTestCase",
+  "description": "Schema for a single generated, validated API test case emitted by specprobe generate",
+  "type": "object",
+  "required": [
+    "operation_id",
+    "description",
+    "request",
+    "response"
+  ],
+  "properties": {
+    "operation_id": {
+      "type": "string",
+      "description": "Traceable operationId or method/path identifier of the target API operation",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string",
+      "description": "Plain-language description of the happy-path scenario tested",
+      "minLength": 1
+    },
+    "request": {
+      "type": "object",
+      "description": "Concrete fixtures proposed for the HTTP request",
+      "properties": {
+        "path_params": {
+          "type": "object",
+          "description": "Key-value mapping of path template parameter replacements"
+        },
+        "query_params": {
+          "type": "object",
+          "description": "Key-value mapping of query string parameters"
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "HTTP request headers"
+        },
+        "body": {
+          "description": "Request body payload conforming to the operation schema"
+        }
+      },
+      "additionalProperties": false
+    },
+    "response": {
+      "type": "object",
+      "required": [
+        "status_code"
+      ],
+      "properties": {
+        "status_code": {
+          "type": "integer",
+          "description": "Expected HTTP response status code (e.g. 200, 201)",
+          "minimum": 100,
+          "maximum": 599
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Expected HTTP response headers"
+        },
+        "schema_shape": {
+          "type": ["object", "null"],
+          "description": "Expected response JSON schema shape or structural property assertions"
+        }
+      },
+      "additionalProperties": false
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Operational tags inherited from the OpenAPI specification",
+      "default": []
+    }
+  },
+  "additionalProperties": false
+}

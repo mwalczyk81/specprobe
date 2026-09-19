@@ -173,7 +173,7 @@ def index_command(
 
 
 @cli.command("search")
-@click.argument("query", required=True, type=str)
+@click.argument("query", required=False, default=None, type=str)
 @click.option(
     "--mode",
     type=click.Choice(["dense", "hybrid", "hybrid-rerank"], case_sensitive=False),
@@ -238,7 +238,7 @@ def index_command(
     help="Directory where Qdrant vector files are located.",
 )
 def search_command(
-    query: str,
+    query: str | None,
     mode: str,
     limit: int,
     tag: str | None,
@@ -257,6 +257,20 @@ def search_command(
     """
     from specprobe.search.engine import SearchEngine, SearchMode
 
+    clean_query = query.strip() if query is not None else None
+    if not clean_query:
+        has_filter = any(
+            x is not None for x in [tag, method, deprecated, source_title, source_version]
+        )
+        if not has_filter:
+            click.echo(
+                "Error: Either a search query or at least one filter "
+                "(--tag, --method, --deprecated, --source-title, --source-version) "
+                "must be provided.",
+                err=True,
+            )
+            sys.exit(1)
+
     index_path = Path(index_dir)
     if not index_path.exists():
         click.echo(
@@ -267,23 +281,163 @@ def search_command(
 
     try:
         engine = SearchEngine(index_path=index_dir)
-        matches = engine.search(
-            query=query,
-            mode=SearchMode(mode.lower()),
-            limit=limit,
-            tag=tag,
-            method=method,
-            deprecated=deprecated,
-            source_title=source_title,
-            source_version=source_version,
-            full=full,
-        )
+        if not clean_query:
+            ctx = click.get_current_context()
+            effective_limit = (
+                limit
+                if ctx.get_parameter_source("limit") != click.core.ParameterSource.DEFAULT
+                else None
+            )
+            matches = engine.search_unranked(
+                limit=effective_limit,
+                tag=tag,
+                method=method,
+                deprecated=deprecated,
+                source_title=source_title,
+                source_version=source_version,
+                full=full,
+            )
+        else:
+            matches = engine.search(
+                query=clean_query,
+                mode=SearchMode(mode.lower()),
+                limit=limit,
+                tag=tag,
+                method=method,
+                deprecated=deprecated,
+                source_title=source_title,
+                source_version=source_version,
+                full=full,
+            )
     except Exception as exc:
         click.echo(f"Error: Search execution failed: {exc}", err=True)
         sys.exit(1)
 
     output = [m.model_dump(mode="json") for m in matches]
     click.echo(json.dumps(output, indent=2, ensure_ascii=False))
+
+
+@cli.command("generate")
+@click.argument("results_file", required=False, type=click.Path(dir_okay=False, allow_dash=True))
+@click.option(
+    "--model",
+    type=str,
+    default=lambda: os.environ.get("SPECPROBE_LLM_MODEL", "openai/local-model"),
+    show_default=True,
+    help="Model identifier string passed to LiteLLM.",
+)
+@click.option(
+    "--api-base",
+    type=str,
+    default=lambda: os.environ.get("SPECPROBE_LLM_API_BASE", "http://localhost:1234/v1"),
+    show_default=True,
+    help="Base endpoint URL for model requests.",
+)
+@click.option(
+    "--temperature",
+    type=float,
+    default=lambda: float(os.environ.get("SPECPROBE_LLM_TEMPERATURE", "0.0")),
+    show_default=True,
+    help="Sampling temperature for LLM completions.",
+)
+@click.option(
+    "--cache-dir",
+    type=click.Path(),
+    default=lambda: os.environ.get("SPECPROBE_CACHE_DIR", ".specprobe/cache"),
+    show_default=True,
+    help="Directory where LLM call cache files are stored.",
+)
+@click.option(
+    "--no-cache",
+    is_flag=True,
+    default=lambda: os.environ.get("SPECPROBE_NO_CACHE", "false").lower() in ("true", "1", "yes"),
+    show_default=True,
+    help="Bypass existing disk cache entries and refresh cache records.",
+)
+def generate_command(
+    results_file: str | None,
+    model: str,
+    api_base: str,
+    temperature: float,
+    cache_dir: str,
+    no_cache: bool,
+) -> None:
+    """Generate schema-validated test cases from OpenAPI operation search results.
+
+    Accepts search results JSON (emitted by 'specprobe search --full') via a file argument
+    or standard input (stdin), invoking a local-first LLM gateway, and streaming
+    validated GeneratedTestCase objects as JSON Lines (JSONL) to stdout.
+    """
+    from specprobe.generator.cache import DiskCache
+    from specprobe.generator.engine import GenerationEngine, parse_search_results
+    from specprobe.generator.gateway import LLMGateway
+
+    # Read input from results_file or stdin
+    raw_input = ""
+    if results_file and results_file != "-":
+        file_path = Path(results_file)
+        if not file_path.exists():
+            click.echo(f"Error: Results file not found at '{results_file}'.", err=True)
+            sys.exit(1)
+        try:
+            raw_input = file_path.read_text(encoding="utf-8")
+        except Exception as exc:
+            click.echo(f"Error reading file '{results_file}': {exc}", err=True)
+            sys.exit(1)
+    else:
+        if sys.stdin.isatty():
+            click.echo(
+                "Error: No search results provided. Pass a file argument or pipe JSON via stdin.",
+                err=True,
+            )
+            sys.exit(1)
+        try:
+            raw_input = sys.stdin.read()
+        except Exception as exc:
+            click.echo(f"Error reading stdin: {exc}", err=True)
+            sys.exit(1)
+
+    if not raw_input or not raw_input.strip():
+        click.echo(
+            "Error: No search results provided. Pass a file argument or pipe JSON via stdin.",
+            err=True,
+        )
+        sys.exit(1)
+
+    # Parse search results into OperationChunk list
+    try:
+        chunks = parse_search_results(raw_input)
+    except Exception as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+
+    if not chunks:
+        # Empty array input produces 0 test cases and exits successfully
+        sys.exit(0)
+
+    # Initialize gateway with resolved options
+    try:
+        gateway = LLMGateway(
+            model=model,
+            api_base=api_base,
+            temperature=temperature,
+        )
+    except Exception as exc:
+        click.echo(f"Error: Gateway initialization failed: {exc}", err=True)
+        sys.exit(1)
+
+    cache = DiskCache(cache_dir=cache_dir, no_cache=no_cache)
+    engine = GenerationEngine(gateway=gateway, cache=cache)
+    batch_result = engine.generate_batch(chunks, stream_stdout=True)
+
+    if batch_result.total > 0 and batch_result.succeeded == 0:
+        click.echo(
+            f"Error: All {batch_result.total} operation(s) failed test generation.",
+            err=True,
+        )
+        sys.exit(1)
+
+    sys.exit(0)
 
 
 if __name__ == "__main__":

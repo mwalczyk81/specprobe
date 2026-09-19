@@ -1,0 +1,18 @@
+{
+  "cache_key": "d7fe4cd0b59bea5ecdc3172a1f2ad4984a19844ee8919587e396b8508d33e1fc",
+  "model": "openai/local-model",
+  "api_base": "http://localhost:1234/v1",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an expert API testing engineer.\nYour task is to generate a single realistic, executable happy-path (2xx success)\ntest case for the given OpenAPI operation.\nYou MUST output ONLY a valid JSON object matching the following structure without\nany markdown code fences, commentary, or preamble:\n\n{\n  \"operation_id\": \"<exact operation identifier>\",\n  \"description\": \"<concise description of the happy-path test scenario>\",\n  \"request\": {\n    \"path_params\": { \"<parameter_name>\": <realistic_value> },\n    \"query_params\": { \"<parameter_name>\": <realistic_value> },\n    \"headers\": { \"<header_name>\": \"<value>\" },\n    \"body\": <concrete_request_body_or_null>\n  },\n  \"response\": {\n    \"status_code\": <expected_2xx_integer_code_such_as_200_or_201>,\n    \"headers\": { \"<expected_response_header>\": \"<value>\" },\n    \"schema_shape\": <expected_json_structure_or_null>\n  },\n  \"tags\": [\"<tag>\", ...]\n}\n\nGuidelines:\n- operation_id MUST match the operation's identifier (or fallback to METHOD_path if absent).\n- Use concrete, realistic fixture data matching parameter types and schemas (avoid generic\n  placeholders like \"string\" when realistic data like \"rover\" or \"42\" is appropriate).\n- Response status_code MUST be an integer matching one of the defined successful 2xx responses."
+    },
+    {
+      "role": "user",
+      "content": "Target Operation: GET /pets/{petId}\n\nOperation ID: showPetById\n\nSummary: Info for a specific pet\n\nTags: pets\n\nParameters:\n  - petId (path, required, type: string)\n\nDefined Responses:\n  - 200: Expected response to a valid request\n\nReferenced Component Schemas:\n{\n  \"Pet\": {\n    \"type\": \"object\",\n    \"required\": [\n      \"id\",\n      \"name\"\n    ],\n    \"properties\": {\n      \"id\": {\n        \"type\": \"integer\",\n        \"format\": \"int64\"\n      },\n      \"name\": {\n        \"type\": \"string\"\n      },\n      \"tag\": {\n        \"type\": \"string\"\n      }\n    }\n  }\n}\n\n\nGenerate the single happy-path test case JSON object now:"
+    }
+  ],
+  "temperature": 0.0,
+  "completion_text": "{\"operation_id\": \"showPetById\", \"description\": \"Get a specific pet by id\", \"request\": {\"path_params\": {\"petId\": \"123\"}, \"query_params\": {}, \"headers\": {\"Accept\": \"application/json\"}, \"body\": null}, \"response\": {\"status_code\": 200, \"headers\": {\"Content-Type\": \"application/json\"}, \"schema_shape\": {\"type\": \"object\"}}, \"tags\": [\"pets\"]}",
+  "created_at": "2026-09-19T14:47:09.272558+00:00"
+}
