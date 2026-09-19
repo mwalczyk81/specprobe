@@ -277,3 +277,106 @@ class SearchEngine:
             index_path=self.index_path, collection_name=self.collection_name
         ) as store:
             return _execute(store.client)
+
+    def search_unranked(
+        self,
+        limit: int | None = None,
+        tag: str | None = None,
+        method: str | None = None,
+        deprecated: bool | None = None,
+        source_title: str | None = None,
+        source_version: str | None = None,
+        full: bool = False,
+    ) -> list[SearchMatch]:
+        """Retrieve operations matching metadata filters without ranking or embedding.
+
+        Parameters
+        ----------
+        limit : int | None
+            Maximum number of matches to return. If None, retrieves all matching points
+            via pagination without limit truncation.
+        tag : str | None
+            Filter by operation tag.
+        method : str | None
+            Filter by HTTP method (case-insensitive).
+        deprecated : bool | None
+            Filter by deprecation status.
+        source_title : str | None
+            Filter by source API specification title.
+        source_version : str | None
+            Filter by source API specification version.
+        full : bool
+            If True, embed complete OperationChunk payload under 'chunk'.
+
+        Returns
+        -------
+        list[SearchMatch]
+            List of matching operations with score=0.0.
+        """
+        if limit is not None and limit <= 0:
+            return []
+
+        q_filter = build_filter(
+            tag=tag,
+            method=method,
+            deprecated=deprecated,
+            source_title=source_title,
+            source_version=source_version,
+        )
+
+        def _execute(client: Any) -> list[SearchMatch]:
+            if not client.collection_exists(self.collection_name):
+                return []
+            info = client.get_collection(self.collection_name)
+            if not info.points_count:
+                return []
+
+            matches: list[SearchMatch] = []
+            offset = None
+
+            while True:
+                batch_limit = min(250, limit - len(matches)) if limit is not None else 250
+                if batch_limit <= 0:
+                    break
+
+                records, offset = client.scroll(
+                    collection_name=self.collection_name,
+                    scroll_filter=q_filter,
+                    limit=batch_limit,
+                    offset=offset,
+                    with_payload=True,
+                    with_vectors=False,
+                )
+                if not records:
+                    break
+
+                for rec in records:
+                    payload = rec.payload or {}
+                    matches.append(
+                        SearchMatch(
+                            operationId=payload.get("operation_id", ""),
+                            path=payload.get("path", ""),
+                            method=payload.get("method", ""),
+                            score=0.0,
+                            tags=payload.get("tags", []),
+                            summary=payload.get("summary"),
+                            source_title=payload.get("source_title", ""),
+                            source_version=payload.get("source_version", ""),
+                            chunk=payload.get("raw_chunk") if full else None,
+                        )
+                    )
+                    if limit is not None and len(matches) >= limit:
+                        break
+
+                if offset is None:
+                    break
+
+            return matches
+
+        if self.store is not None:
+            return _execute(self.store.client)
+
+        with QdrantIndexStore(
+            index_path=self.index_path, collection_name=self.collection_name
+        ) as store:
+            return _execute(store.client)

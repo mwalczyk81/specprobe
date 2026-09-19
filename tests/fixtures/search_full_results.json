@@ -1,0 +1,196 @@
+[
+  {
+    "operationId": "listPets",
+    "path": "/pets",
+    "method": "GET",
+    "score": 0.885,
+    "tags": [
+      "pets"
+    ],
+    "summary": "List all pets",
+    "source_title": "Petstore Probe API",
+    "source_version": "1.2.0",
+    "chunk": {
+      "metadata": {
+        "path": "/pets",
+        "method": "GET",
+        "tags": [
+          "pets"
+        ],
+        "operationId": "listPets",
+        "security": [
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "deprecated": false,
+        "source_title": "Petstore Probe API",
+        "source_version": "1.2.0",
+        "estimated_tokens": 195,
+        "warnings": []
+      },
+      "operation": {
+        "summary": "List all pets",
+        "operationId": "listPets",
+        "tags": [
+          "pets"
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A paged array of pets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Pet"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "components": {
+        "schemas": {
+          "Pet": {
+            "type": "object",
+            "required": [
+              "id",
+              "name"
+            ],
+            "properties": {
+              "id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "name": {
+                "type": "string"
+              },
+              "tag": {
+                "type": "string"
+              }
+            }
+          },
+          "Error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "operationId": "showPetById",
+    "path": "/pets/{petId}",
+    "method": "GET",
+    "score": 0.812,
+    "tags": [
+      "pets"
+    ],
+    "summary": "Info for a specific pet",
+    "source_title": "Petstore Probe API",
+    "source_version": "1.2.0",
+    "chunk": {
+      "metadata": {
+        "path": "/pets/{petId}",
+        "method": "GET",
+        "tags": [
+          "pets"
+        ],
+        "operationId": "showPetById",
+        "security": [],
+        "deprecated": false,
+        "source_title": "Petstore Probe API",
+        "source_version": "1.2.0",
+        "estimated_tokens": 132,
+        "warnings": []
+      },
+      "operation": {
+        "summary": "Info for a specific pet",
+        "operationId": "showPetById",
+        "tags": [
+          "pets"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Expected response to a valid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pet"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "petId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "components": {
+        "schemas": {
+          "Pet": {
+            "type": "object",
+            "required": [
+              "id",
+              "name"
+            ],
+            "properties": {
+              "id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "name": {
+                "type": "string"
+              },
+              "tag": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+]
