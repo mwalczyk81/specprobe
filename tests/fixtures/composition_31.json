@@ -1,0 +1,111 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Polymorphic Composition API",
+    "version": "2.0.0"
+  },
+  "paths": {
+    "/items/{itemId}": {
+      "parameters": [
+        {
+          "name": "itemId",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string" }
+        },
+        {
+          "name": "X-Trace-Id",
+          "in": "header",
+          "required": false,
+          "description": "Path level trace header",
+          "schema": { "type": "string" }
+        }
+      ],
+      "post": {
+        "summary": "Create or update composite item",
+        "operationId": "createCompositeItem",
+        "parameters": [
+          {
+            "name": "X-Trace-Id",
+            "in": "header",
+            "required": true,
+            "description": "Operation level override of trace header",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompositePayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Composite result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompositeResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BaseEntity": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Cat": {
+        "type": "object",
+        "properties": {
+          "meow": { "type": "boolean" }
+        }
+      },
+      "Dog": {
+        "type": "object",
+        "properties": {
+          "bark": { "type": "boolean" }
+        }
+      },
+      "CompositePayload": {
+        "allOf": [
+          { "$ref": "#/components/schemas/BaseEntity" }
+        ],
+        "oneOf": [
+          { "$ref": "#/components/schemas/Cat" },
+          { "$ref": "#/components/schemas/Dog" }
+        ]
+      },
+      "Metadata": {
+        "type": "object",
+        "properties": {
+          "version": { "type": "integer" }
+        }
+      },
+      "CompositeResponse": {
+        "anyOf": [
+          { "$ref": "#/components/schemas/Metadata" },
+          { "$ref": "#/components/schemas/BaseEntity" }
+        ]
+      },
+      "OrphanedSchema": {
+        "type": "object",
+        "properties": {
+          "ignored": { "type": "string" }
+        }
+      }
+    }
+  }
+}

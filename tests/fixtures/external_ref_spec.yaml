@@ -1,0 +1,29 @@
+openapi: "3.0.3"
+info:
+  title: "External Reference API"
+  version: "1.0.0"
+paths:
+  /external:
+    get:
+      summary: "Endpoint referencing external file"
+      operationId: "getExternal"
+      responses:
+        "200":
+          description: "Success with local schema"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocalData"
+        "500":
+          description: "Error with external file schema"
+          content:
+            application/json:
+              schema:
+                $ref: "common_models.yaml#/components/schemas/ExternalError"
+components:
+  schemas:
+    LocalData:
+      type: "object"
+      properties:
+        status:
+          type: "string"

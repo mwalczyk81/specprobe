@@ -1,0 +1,71 @@
+openapi: "3.0.3"
+info:
+  title: "Circular References Test API"
+  version: "1.0.0"
+paths:
+  /trees:
+    get:
+      summary: "Get tree node hierarchy"
+      operationId: "getTree"
+      responses:
+        "200":
+          description: "Root tree node"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Node"
+  /users/{userId}:
+    get:
+      summary: "Get user with team membership"
+      operationId: "getUser"
+      parameters:
+        - name: "userId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "200":
+          description: "User with team"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+components:
+  schemas:
+    Node:
+      type: "object"
+      properties:
+        value:
+          type: "string"
+        parent:
+          $ref: "#/components/schemas/Node"
+        children:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/Node"
+    User:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+        name:
+          type: "string"
+        team:
+          $ref: "#/components/schemas/Team"
+    Team:
+      type: "object"
+      properties:
+        teamId:
+          type: "string"
+        leader:
+          $ref: "#/components/schemas/User"
+        members:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/User"
+    UnrelatedNode:
+      type: "object"
+      properties:
+        foo:
+          type: "string"

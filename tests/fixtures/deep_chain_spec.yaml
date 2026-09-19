@@ -1,0 +1,45 @@
+openapi: "3.0.3"
+info:
+  title: "Deep Schema Chain API"
+  version: "1.0.0"
+  description: "Test fixture for verifying schema traversal depth capping."
+paths:
+  /chain:
+    get:
+      summary: "Get deep chain object"
+      operationId: "getDeepChain"
+      responses:
+        "200":
+          description: "Chain root response"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Level1"
+components:
+  schemas:
+    Level1:
+      type: "object"
+      properties:
+        name:
+          type: "string"
+        next:
+          $ref: "#/components/schemas/Level2"
+    Level2:
+      type: "object"
+      properties:
+        level:
+          type: "integer"
+        next:
+          $ref: "#/components/schemas/Level3"
+    Level3:
+      type: "object"
+      properties:
+        sublevel:
+          type: "string"
+        next:
+          $ref: "#/components/schemas/Level4"
+    Level4:
+      type: "object"
+      properties:
+        terminal:
+          type: "boolean"

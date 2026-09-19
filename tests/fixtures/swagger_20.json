@@ -1,0 +1,20 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Legacy Swagger API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/legacy": {
+      "get": {
+        "summary": "Legacy endpoint",
+        "operationId": "getLegacy",
+        "responses": {
+          "200": {
+            "description": "Legacy response"
+          }
+        }
+      }
+    }
+  }
+}
