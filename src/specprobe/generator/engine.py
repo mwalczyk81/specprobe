@@ -163,6 +163,14 @@ class GenerationEngine:
             if chunk_tags:
                 data["tags"] = chunk_tags
 
+        # Inherit method and path into request fixture if absent
+        req = data.setdefault("request", {})
+        if isinstance(req, dict):
+            if not req.get("method") and chunk.metadata.method:
+                req["method"] = chunk.metadata.method.upper()
+            if not req.get("path") and chunk.metadata.path:
+                req["path"] = chunk.metadata.path
+
         return GeneratedTestCase.model_validate(data)
 
     def generate_chunk(self, chunk: OperationChunk) -> GeneratedTestCase:

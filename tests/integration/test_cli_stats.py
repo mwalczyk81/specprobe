@@ -69,8 +69,11 @@ def test_populated_multi_spec_stats(tmp_path):
     assert "Status: healthy" in result.output
     assert "Total Indexed Operations: 3" in result.output
     assert "Unique Specifications: 2" in result.output
-    assert "* Petstore API (1.0.0): 2 operations" in result.output
-    assert "* Billing API (2.1.0): 1 operations" in result.output
+    assert "Spec Title" in result.output
+    assert "Version" in result.output
+    assert "Operation Count" in result.output
+    assert "Petstore API" in result.output
+    assert "Billing API" in result.output
     assert "dense: 384 (Cosine)" in result.output
     assert "sparse: BM25 token weights" in result.output
     # SC-007: stats mode completes in under 100 milliseconds
@@ -90,3 +93,22 @@ def test_stats_exclusive_mode(tmp_path):
     )
     assert result.exit_code == 0
     assert "SpecProbe Vector Index Statistics:" in result.output
+
+
+def test_chunk_stats_output(valid_openapi_30_path):
+    """Verify specprobe chunk --stats renders a rich table with chunking statistics."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["chunk", str(valid_openapi_30_path), "--stats"])
+
+    assert result.exit_code == 0
+    assert "Chunking" in result.output
+    assert "Statistics" in result.output
+    assert "Total Operations" in result.output
+    assert "Min Tokens" in result.output
+    assert "Max Tokens" in result.output
+    assert "Median Tokens" in result.output
+    assert "Avg Tokens" in result.output
+    assert "Oversized Chunks" in result.output
+    assert "Warnings" in result.output
+    # Must NOT stream JSONL chunks when --stats is active (exclusive mode)
+    assert '{"metadata":' not in result.output

@@ -2,13 +2,19 @@
 
 import json
 import os
+import statistics
 import sys
 from pathlib import Path
 
 import click
+from rich.console import Console
+from rich.table import Table
 
 from specprobe.chunker.extractor import OperationExtractor
 from specprobe.chunker.loader import SpecLoadError, load_openapi_spec
+from specprobe.chunker.models import ChunkingStats
+from specprobe.exporter.engine import export_batch, read_test_cases
+from specprobe.exporter.models import ExportConfig, ExportFormat
 from specprobe.formatters.jsonl import stream_chunks_as_jsonl
 from specprobe.index.store import QdrantIndexStore, index_chunk_stream
 
@@ -79,6 +85,55 @@ def chunk_command(
         click.echo(f"Error: Operation '{operation_id}' not found.", err=True)
         sys.exit(1)
 
+    # If --stats is specified, display summary table of operation counts and sizes
+    if stats:
+        chunks = list(chunks_iter)
+        token_counts = [chunk.metadata.estimated_tokens for chunk in chunks]
+        all_warnings: list[str] = []
+        oversized = 0
+        for chunk in chunks:
+            for w in chunk.metadata.warnings:
+                if w not in all_warnings:
+                    all_warnings.append(w)
+            if chunk.metadata.estimated_tokens > max_tokens:
+                oversized += 1
+
+        total_ops = len(chunks)
+        if total_ops > 0:
+            min_tok = min(token_counts)
+            max_tok = max(token_counts)
+            median_tok = float(statistics.median(token_counts))
+            avg_tok = float(statistics.mean(token_counts))
+        else:
+            min_tok = 0
+            max_tok = 0
+            median_tok = 0.0
+            avg_tok = 0.0
+
+        chunk_stats = ChunkingStats(
+            total_operations=total_ops,
+            min_tokens=min_tok,
+            max_tokens=max_tok,
+            median_tokens=median_tok,
+            avg_tokens=avg_tok,
+            oversized_chunks=oversized,
+            warnings=all_warnings,
+        )
+
+        console = Console()
+        table = Table(title="SpecProbe Chunking Statistics")
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", style="green")
+        table.add_row("Total Operations", str(chunk_stats.total_operations))
+        table.add_row("Min Tokens", str(chunk_stats.min_tokens))
+        table.add_row("Max Tokens", str(chunk_stats.max_tokens))
+        table.add_row("Median Tokens", f"{chunk_stats.median_tokens:.1f}")
+        table.add_row("Avg Tokens", f"{chunk_stats.avg_tokens:.1f}")
+        table.add_row("Oversized Chunks", str(chunk_stats.oversized_chunks))
+        table.add_row("Warnings", str(len(chunk_stats.warnings)))
+        console.print(table)
+        return
+
     # Stream chunks as JSONL
     for chunk_line in stream_chunks_as_jsonl(chunks_iter):
         click.echo(chunk_line, nl=False)
@@ -113,18 +168,24 @@ def index_command(
             click.echo(f"Error: Failed to read index statistics: {exc}", err=True)
             sys.exit(1)
 
-        click.echo("SpecProbe Vector Index Statistics:")
-        click.echo(f"  Location: {report.index_path}")
-        click.echo(f"  Status: {report.status}")
-        click.echo(f"  Total Indexed Operations: {report.total_operations}")
-        click.echo(f"  Unique Specifications: {report.unique_specifications}")
+        console = Console()
+        console.print("SpecProbe Vector Index Statistics:")
+        console.print(f"  Location: {report.index_path}")
+        console.print(f"  Status: {report.status}")
+        console.print(f"  Total Indexed Operations: {report.total_operations}")
+        console.print(f"  Unique Specifications: {report.unique_specifications}")
+
+        table = Table(title="Specifications")
+        table.add_column("Spec Title", style="cyan")
+        table.add_column("Version", style="magenta")
+        table.add_column("Operation Count", justify="right", style="green")
         for spec in report.specifications:
-            click.echo(
-                f"  * {spec.source_title} ({spec.source_version}): {spec.chunk_count} operations"
-            )
-        click.echo("Vector Configurations:")
-        click.echo(f"  * dense: {report.vector_dimensions.get('dense')}")
-        click.echo(f"  * sparse: {report.vector_dimensions.get('sparse')}")
+            table.add_row(spec.source_title, spec.source_version, str(spec.chunk_count))
+        console.print(table)
+
+        console.print("Vector Configurations:")
+        console.print(f"  * dense: {report.vector_dimensions.get('dense')}")
+        console.print(f"  * sparse: {report.vector_dimensions.get('sparse')}")
         return
 
     # Ingestion mode
@@ -435,6 +496,98 @@ def generate_command(
             f"Error: All {batch_result.total} operation(s) failed test generation.",
             err=True,
         )
+        sys.exit(1)
+
+    sys.exit(0)
+
+
+@cli.command("export")
+@click.argument(
+    "test_cases_file",
+    required=False,
+    type=click.Path(dir_okay=False, allow_dash=True, path_type=Path),
+)
+@click.option(
+    "--format",
+    type=click.Choice(["postman", "http", "both"], case_sensitive=False),
+    default="both",
+    show_default=True,
+    help="Target artifact format(s) to generate.",
+)
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Destination output file path (for single format) or directory (for both).",
+)
+@click.option(
+    "--collection-name",
+    type=str,
+    default=None,
+    help="Title/name for Postman collection.",
+)
+@click.option(
+    "--base-url",
+    type=str,
+    default="http://localhost:8000",
+    show_default=True,
+    help="Base URL for target API environment embedded as variable.",
+)
+def export_command(
+    test_cases_file: Path | None,
+    format: str,
+    output: Path | None,
+    collection_name: str | None,
+    base_url: str,
+) -> None:
+    """Deterministically transform generated test cases into runnable test artifacts
+    (Postman Collections and REST Client .http files).
+    """
+    try:
+        target_format = ExportFormat(format.lower())
+    except ValueError:
+        click.echo(f"Error: Invalid format '{format}'.", err=True)
+        sys.exit(1)
+
+    # Validate that dual format requires an explicit output directory before reading stdin/file
+    if target_format == ExportFormat.BOTH and output is None:
+        click.echo(
+            "Error: Option '--output <directory>' is required when '--format both' is specified.",
+            err=True,
+        )
+        sys.exit(1)
+
+    if test_cases_file is None and sys.stdin.isatty():
+        click.echo(
+            "Error: No test cases provided. Pass a file argument or pipe JSONL via stdin.",
+            err=True,
+        )
+        sys.exit(1)
+
+    try:
+        test_cases = read_test_cases(test_cases_file)
+    except FileNotFoundError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+    except ValueError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+    except Exception as exc:
+        click.echo(f"Error reading test cases: {exc}", err=True)
+        sys.exit(1)
+
+    config = ExportConfig(
+        format=target_format,
+        output_path=output,
+        collection_name=collection_name,
+        base_url=base_url,
+    )
+
+    try:
+        export_batch(test_cases, config, out_stream=sys.stdout, err_stream=sys.stderr)
+    except Exception as exc:
+        click.echo(f"Error during export: {exc}", err=True)
         sys.exit(1)
 
     sys.exit(0)

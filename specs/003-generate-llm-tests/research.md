@@ -1,8 +1,8 @@
 # Technical Research: LLM Test Generation & Filter-Only Search
 
-**Feature**: `003-generate-llm-tests`  
-**Date**: 2026-09-19  
-**Status**: Completed  
+**Feature**: `003-generate-llm-tests`
+**Date**: 2026-09-19
+**Status**: Completed
 
 ---
 
@@ -54,9 +54,9 @@ Constitution Principle IV mandates:
    - Model identifier (`model`)
    - Complete message history (`messages`: list of dicts with `role` and `content`)
    - Generation parameters (e.g. `temperature`)
-   
+
    **Critical Design Rule**: The endpoint URL (`api_base`) MUST NOT be included in the hashed payload. `api_base` is merely a transport routing detail, not a semantic generation parameter. Omitting `api_base` from the hash ensures that cache fixtures recorded locally (e.g. against `http://localhost:1234/v1`) hit deterministically in CI environments where no live model server is running and offline fixtures are replayed.
-   
+
    To avoid hashing discrepancies caused by dictionary key ordering or whitespace, messages and metadata are serialized to canonical JSON (`sort_keys=True`, `separators=(',', ':')`) and hashed using SHA-256:
    ```python
    import hashlib

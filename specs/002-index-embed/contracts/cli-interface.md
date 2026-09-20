@@ -1,7 +1,7 @@
 # CLI Contract: `specprobe index` & `specprobe search`
 
-**Feature**: `002-index-embed`  
-**Date**: 2026-09-19  
+**Feature**: `002-index-embed`
+**Date**: 2026-09-19
 **Status**: Draft
 
 ---

@@ -1,7 +1,7 @@
 # Quickstart: Local Vector Indexing & Semantic Search
 
-**Feature**: `002-index-embed`  
-**Date**: 2026-09-19  
+**Feature**: `002-index-embed`
+**Date**: 2026-09-19
 **Status**: Draft
 
 ---

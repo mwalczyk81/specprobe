@@ -1,8 +1,8 @@
 # Implementation Tasks: Local Vector Indexing & Semantic Search
 
-**Feature**: `002-index-embed`  
-**Date**: 2026-09-19  
-**Specification**: [specs/002-index-embed/spec.md](file:///C:/Users/mwalc/source/repos/specprobe/specs/002-index-embed/spec.md)  
+**Feature**: `002-index-embed`
+**Date**: 2026-09-19
+**Specification**: [specs/002-index-embed/spec.md](file:///C:/Users/mwalc/source/repos/specprobe/specs/002-index-embed/spec.md)
 **Implementation Plan**: [specs/002-index-embed/plan.md](file:///C:/Users/mwalc/source/repos/specprobe/specs/002-index-embed/plan.md)
 
 ---

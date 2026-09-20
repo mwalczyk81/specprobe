@@ -1,9 +1,9 @@
 # Tasks: LLM Test Generation & Filter-Only Search
 
-**Feature**: `003-generate-llm-tests`  
-**Date**: 2026-09-19  
-**Specification**: [`specs/003-generate-llm-tests/spec.md`](file:///C:/Users/mwalc/source/repos/specprobe/specs/003-generate-llm-tests/spec.md)  
-**Implementation Plan**: [`specs/003-generate-llm-tests/plan.md`](file:///C:/Users/mwalc/source/repos/specprobe/specs/003-generate-llm-tests/plan.md)  
+**Feature**: `003-generate-llm-tests`
+**Date**: 2026-09-19
+**Specification**: [`specs/003-generate-llm-tests/spec.md`](file:///C:/Users/mwalc/source/repos/specprobe/specs/003-generate-llm-tests/spec.md)
+**Implementation Plan**: [`specs/003-generate-llm-tests/plan.md`](file:///C:/Users/mwalc/source/repos/specprobe/specs/003-generate-llm-tests/plan.md)
 
 ---
 

@@ -20,20 +20,20 @@ Implement the `specprobe index` and `specprobe search` CLI commands to enable pe
 
 ## Technical Context
 
-**Language/Version**: Python 3.11+ (verified on Python 3.14.7)  
-**Primary Dependencies**: `click>=8.1.0`, `pydantic>=2.0.0`, `qdrant-client>=1.19.0`, `fastembed>=0.8.0`  
-**Storage**: Embedded on-disk Qdrant storage (`./.specprobe/index`, configurable via `--index-dir` or `SPECPROBE_INDEX_DIR`)  
-**Testing**: `pytest>=8.0.0` with `uv run pytest`  
-**Target Platform**: Windows, Linux, macOS (CPU-based ONNX Runtime, no GPU required)  
-**Project Type**: CLI developer tool  
+**Language/Version**: Python 3.11+ (verified on Python 3.14.7)
+**Primary Dependencies**: `click>=8.1.0`, `pydantic>=2.0.0`, `qdrant-client>=1.19.0`, `fastembed>=0.8.0`
+**Storage**: Embedded on-disk Qdrant storage (`./.specprobe/index`, configurable via `--index-dir` or `SPECPROBE_INDEX_DIR`)
+**Testing**: `pytest>=8.0.0` with `uv run pytest`
+**Target Platform**: Windows, Linux, macOS (CPU-based ONNX Runtime, no GPU required)
+**Project Type**: CLI developer tool
 **Performance Goals**:
 - Dense and hybrid search latency < 250ms for collections up to 1,000 operations (SC-005).
 - Hybrid-rerank search latency < 1000ms (1.0s) on multi-core CPU across top 20 candidate pool.
-- Collection diagnostics (`--stats`) latency < 100ms (SC-007).  
+- Collection diagnostics (`--stats`) latency < 100ms (SC-007).
 **Constraints**:
 - 100% offline, zero network, zero cloud APIs, zero LLMs (Constitution Principle III).
 - Idempotent spec-level replacement on `(source_title, source_version)` without orphaned operations.
-- Scores are ordinal ranking values meaningful only within a single query; document non-comparability across modes and invocations.  
+- Scores are ordinal ranking values meaningful only within a single query; document non-comparability across modes and invocations.
 **Scale/Scope**: Collections containing up to thousands of operations; real-world specs like Stripe (~600 operations).
 
 ---

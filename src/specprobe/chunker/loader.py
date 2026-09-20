@@ -78,6 +78,8 @@ def load_openapi_spec(spec_path_or_content: str | Path) -> dict[str, Any]:
             parser = prance.BaseParser(canonical_filename(str(path_obj)), strict=False)
         else:
             parser = prance.BaseParser(spec_string=content, strict=False)
+        if parser.specification is None:
+            raise SpecLoadError("Failed to parse OpenAPI specification.")
         return parser.specification
     except SpecLoadError:
         raise
