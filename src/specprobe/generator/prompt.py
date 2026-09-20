@@ -36,6 +36,10 @@ Guidelines:
 - schema_shape MUST be either null (for empty/204 responses) or a strictly valid, self-contained
   JSON Schema Draft 7 object (e.g. declaring "type": "object" with "properties" or "type": "array"
   with "items"). Do NOT output bare or unresolved "$ref" pointers; all definitions must be inlined.
+- If the operation requires authentication, include the appropriate credential placeholder in the
+  request fixtures: 'Authorization': 'Bearer <token>' for HTTP Bearer / OAuth2,
+  'Authorization': 'Basic <credentials>' for HTTP Basic, or '<Header-Name>': '<api_key>' /
+  query parameter for API keys.
 """
 
 
@@ -132,6 +136,26 @@ class PromptBuilder:
             schemas = chunk.components.get("schemas")
             if schemas:
                 sections.append(f"Referenced Component Schemas:\n{json.dumps(schemas, indent=2)}")
+
+        # Security Requirements
+        security = op.get("security") if op.get("security") is not None else meta.security
+        sec_schemes = (
+            chunk.components.get("securitySchemes") if isinstance(chunk.components, dict) else None
+        ) or {}
+        if security:
+            sec_lines = ["Security Requirements:"]
+            for req in security:
+                if not req:
+                    sec_lines.append("  - Optional (unauthenticated access permitted)")
+                    continue
+                req_items = []
+                for s_name, s_scopes in req.items():
+                    s_def = sec_schemes.get(s_name, {})
+                    s_type = s_def.get("type", "unknown")
+                    scope_str = f" with scopes: {', '.join(s_scopes)}" if s_scopes else ""
+                    req_items.append(f"{s_name} (type: {s_type}{scope_str})")
+                sec_lines.append(f"  - {' AND '.join(req_items)}")
+            sections.append("\n".join(sec_lines))
 
         sections.append("\nGenerate the single happy-path test case JSON object now:")
         return "\n\n".join(sections)

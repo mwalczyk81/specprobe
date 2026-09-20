@@ -149,7 +149,8 @@ def test_full_pipeline_search_generate_export(tmp_path: Path) -> None:
 
     # Verify REST Client document parses and contains requests
     http_doc = http_file.read_text(encoding="utf-8")
-    assert http_doc.startswith("@baseUrl = http://127.0.0.1:8000\n\n")
+    assert http_doc.startswith("@baseUrl = http://127.0.0.1:8000\n")
+    assert "@apiKeyAuth = <api_key>" in http_doc
     assert http_doc.count("###") == 4
     assert "# @name listPets" in http_doc
     assert "# @name createPets" in http_doc

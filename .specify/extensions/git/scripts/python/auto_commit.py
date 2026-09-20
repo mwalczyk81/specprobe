@@ -46,9 +46,7 @@ def _strip_quotes(value: str) -> str:
     return re.sub(r"[\"']*$", "", value)
 
 
-def _parse_auto_commit_config(
-    config_file: Path, event_name: str
-) -> tuple[bool, str]:
+def _parse_auto_commit_config(config_file: Path, event_name: str) -> tuple[bool, str]:
     """Parse the auto_commit section for this event, mirroring the bash line parser.
 
     Returns (enabled, commit_msg). Looks for auto_commit.<event_name>.enabled
@@ -152,9 +150,7 @@ def main(argv: list[str]) -> int:
     # Check if there are changes to commit
     def _quiet(*args: str) -> bool:
         return (
-            subprocess.run(
-                ["git", *args], cwd=repo_root, capture_output=True, text=True
-            ).returncode
+            subprocess.run(["git", *args], cwd=repo_root, capture_output=True, text=True).returncode
             == 0
         )
 
@@ -164,7 +160,11 @@ def main(argv: list[str]) -> int:
         capture_output=True,
         text=True,
     ).stdout.strip()
-    if _quiet("diff", "--quiet", "HEAD") and _quiet("diff", "--cached", "--quiet") and not untracked:
+    if (
+        _quiet("diff", "--quiet", "HEAD")
+        and _quiet("diff", "--cached", "--quiet")
+        and not untracked
+    ):
         print(f"[specify] No changes to commit after {event_name}", file=sys.stderr)
         return 0
 

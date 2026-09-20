@@ -73,9 +73,7 @@ def _collect_context_files(data: dict, project_root: str) -> list[str]:
         # CLI by design.
         integration_key = ""
         try:
-            with open(
-                f"{project_root}/.specify/init-options.json", "r", encoding="utf-8"
-            ) as fh:
+            with open(f"{project_root}/.specify/init-options.json", encoding="utf-8") as fh:
                 opts = json.load(fh)
             if isinstance(opts, dict):
                 value = opts.get("integration") or opts.get("ai") or ""
@@ -84,12 +82,11 @@ def _collect_context_files(data: dict, project_root: str) -> list[str]:
             integration_key = ""
         if integration_key:
             defaults_path = (
-                f"{project_root}/.specify/extensions/agent-context/"
-                "agent-context-defaults.json"
+                f"{project_root}/.specify/extensions/agent-context/agent-context-defaults.json"
             )
             mapping = {}
             try:
-                with open(defaults_path, "r", encoding="utf-8") as fh:
+                with open(defaults_path, encoding="utf-8") as fh:
                     loaded = json.load(fh)
                 agents = loaded.get("agents", {}) if isinstance(loaded, dict) else {}
                 mapping = agents if isinstance(agents, dict) else {}
@@ -103,8 +100,7 @@ def _collect_context_files(data: dict, project_root: str) -> list[str]:
             if not context_files:
                 _err(
                     "agent-context: no default context file is known for integration "
-                    "%s. Set context_file in the extension config to choose one."
-                    % integration_key
+                    "%s. Set context_file in the extension config to choose one." % integration_key
                 )
     return context_files
 
@@ -112,10 +108,7 @@ def _collect_context_files(data: dict, project_root: str) -> list[str]:
 def _validate_context_file(project_root: str, context_file: str) -> str | None:
     """Return an error message when the path escapes the project root."""
     if context_file.startswith("/") or re.match(r"^[A-Za-z]:", context_file):
-        return (
-            "agent-context: context files must be project-relative paths; "
-            f"got '{context_file}'."
-        )
+        return f"agent-context: context files must be project-relative paths; got '{context_file}'."
     if "\\" in context_file:
         return (
             "agent-context: context files must not contain backslash separators; "
@@ -145,7 +138,7 @@ def _resolve_plan_path(project_root: str) -> str:
     if feature_json.is_file():
         feature_dir = ""
         try:
-            with open(feature_json, "r", encoding="utf-8") as fh:
+            with open(feature_json, encoding="utf-8") as fh:
                 data = json.load(fh)
             value = data.get("feature_directory", "")
             feature_dir = value if isinstance(value, str) else ""
@@ -256,12 +249,10 @@ def ensure_mdc_frontmatter(content: str) -> str:
     return f"{leading}{opening}{fm_text}{closing}{sep}{rest}"
 
 
-def _upsert_section(
-    ctx_path: str, marker_start: str, marker_end: str, section: str
-) -> None:
+def _upsert_section(ctx_path: str, marker_start: str, marker_end: str, section: str) -> None:
     """Insert or replace the managed section, then normalize and write."""
     if os.path.exists(ctx_path):
-        with open(ctx_path, "r", encoding="utf-8-sig") as fh:
+        with open(ctx_path, encoding="utf-8-sig") as fh:
             content = fh.read()
         s = content.find(marker_start)
         e = content.find(marker_end, s if s != -1 else 0)
@@ -298,9 +289,7 @@ def _upsert_section(
 def main(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else argv
     project_root = os.getcwd()
-    ext_config = (
-        f"{project_root}/.specify/extensions/agent-context/agent-context-config.yml"
-    )
+    ext_config = f"{project_root}/.specify/extensions/agent-context/agent-context-config.yml"
 
     if not os.path.isfile(ext_config):
         _err(f"agent-context: {ext_config} not found; nothing to do.")
@@ -320,13 +309,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     try:
-        with open(ext_config, "r", encoding="utf-8") as fh:
+        with open(ext_config, encoding="utf-8") as fh:
             data = yaml.safe_load(fh)
     except Exception as exc:
-        _err(
-            f"agent-context: unable to parse {ext_config} ({exc}); "
-            "cannot update context."
-        )
+        _err(f"agent-context: unable to parse {ext_config} ({exc}); cannot update context.")
         _err("agent-context: skipping update (see above for details).")
         return 0
     if not isinstance(data, dict):
@@ -335,8 +321,7 @@ def main(argv: list[str] | None = None) -> int:
     context_files = _collect_context_files(data, project_root)
     if not context_files:
         _err(
-            "agent-context: context_files/context_file not set in extension config; "
-            "nothing to do."
+            "agent-context: context_files/context_file not set in extension config; nothing to do."
         )
         return 0
 

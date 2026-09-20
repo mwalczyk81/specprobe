@@ -195,3 +195,13 @@ class GeneratedTestCase(BaseModel):
         default_factory=list,
         description="Operational tags inherited from the OpenAPI specification.",
     )
+    security: list[dict[str, list[str]]] = Field(
+        default_factory=list,
+        description="Resolved security requirements inherited from the target operation chunk.",
+    )
+    security_schemes: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Resolved security scheme definitions inherited from operation chunk components."
+        ),
+    )

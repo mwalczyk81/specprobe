@@ -22,7 +22,9 @@ class OperationExtractor:
         self.source_title = spec.get("info", {}).get("title", "Untitled API")
         self.source_version = spec.get("info", {}).get("version", "0.0.0")
         self.all_schemas = spec.get("components", {}).get("schemas", {})
+        self.all_security_schemes = spec.get("components", {}).get("securitySchemes", {})
         self.pruner = SchemaPruner(self.all_schemas, max_depth=schema_depth)
+
         self.seen_operation_ids: set[str] = set()
 
     def _synthesize_operation_id(self, method: str, path: str) -> str:
@@ -73,6 +75,25 @@ class OperationExtractor:
             return copy.deepcopy(op["security"])
         return copy.deepcopy(self.global_security)
 
+    def _prune_security_schemes(self, security: list[dict[str, list[str]]]) -> dict[str, Any]:
+        """Prune components.securitySchemes to include only those referenced by the operation."""
+        if not security or not self.all_security_schemes:
+            return {}
+
+        referenced_names: set[str] = set()
+        for req in security:
+            if isinstance(req, dict):
+                referenced_names.update(req.keys())
+
+        pruned: dict[str, Any] = {}
+        for name in referenced_names:
+            if name in self.all_security_schemes and isinstance(
+                self.all_security_schemes[name], dict
+            ):
+                pruned[name] = copy.deepcopy(self.all_security_schemes[name])
+
+        return pruned
+
     def extract_operations(self) -> Generator[OperationChunk, None, None]:
         """Iterate through all paths and operations, yielding an OperationChunk for each."""
         paths = self.spec.get("paths", {})
@@ -119,9 +140,14 @@ class OperationExtractor:
                 # 3. Resolve security
                 security = self._resolve_security(op)
 
-                # 4. Prune referenced component schemas
+                # 4. Prune referenced component schemas and security schemes
                 pruned_schemas = self.pruner.prune_for_operation(op)
-                components_payload = {"schemas": pruned_schemas} if pruned_schemas else {}
+                pruned_security = self._prune_security_schemes(security)
+                components_payload: dict[str, Any] = {}
+                if pruned_schemas:
+                    components_payload["schemas"] = pruned_schemas
+                if pruned_security:
+                    components_payload["securitySchemes"] = pruned_security
 
                 # 5. Extract metadata attributes
                 tags = op.get("tags", [])

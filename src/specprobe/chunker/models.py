@@ -41,7 +41,10 @@ class OperationChunk(BaseModel):
     )
     components: dict[str, Any] = Field(
         default_factory=dict,
-        description="Pruned components dictionary containing only referenced schemas",
+        description=(
+            "Pruned components dictionary containing referenced schemas and "
+            "referenced security scheme definitions ('securitySchemes')"
+        ),
     )
 
 

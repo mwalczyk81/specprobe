@@ -187,9 +187,7 @@ def get_highest_from_specs(specs_dir: Path) -> int:
                 continue
             name = entry.name
             # Match sequential prefixes (>=3 digits), but skip timestamp dirs.
-            if re.match(r"^[0-9]{3,}-", name) and not re.match(
-                r"^[0-9]{8}-[0-9]{6}-", name
-            ):
+            if re.match(r"^[0-9]{3,}-", name) and not re.match(r"^[0-9]{8}-[0-9]{6}-", name):
                 number = int(re.match(r"^[0-9]+", name).group(0))
                 highest = max(highest, number)
     return highest
@@ -222,9 +220,7 @@ def _git_lines(repo_root: Path, *args: str, env_extra: dict | None = None) -> li
     if shutil.which("git") is None:
         return []
     env = {**os.environ, **(env_extra or {})}
-    result = subprocess.run(
-        ["git", *args], cwd=repo_root, capture_output=True, text=True, env=env
-    )
+    result = subprocess.run(["git", *args], cwd=repo_root, capture_output=True, text=True, env=env)
     if result.returncode != 0:
         return []
     return result.stdout.splitlines()
@@ -566,13 +562,9 @@ def main(argv: list[str]) -> int:
                 text=True,
             )
             if create.returncode != 0:
-                current_branch_lines = _git_lines(
-                    repo_root, "rev-parse", "--abbrev-ref", "HEAD"
-                )
+                current_branch_lines = _git_lines(repo_root, "rev-parse", "--abbrev-ref", "HEAD")
                 current_branch = current_branch_lines[0] if current_branch_lines else ""
-                branch_exists = bool(
-                    _git_lines(repo_root, "branch", "--list", branch_name)
-                )
+                branch_exists = bool(_git_lines(repo_root, "branch", "--list", branch_name))
                 if branch_exists:
                     if args.allow_existing:
                         if current_branch != branch_name:
@@ -629,10 +621,7 @@ def main(argv: list[str]) -> int:
         print(f"BRANCH_NAME: {branch_name}")
         print(f"FEATURE_NUM: {feature_num}")
         if not args.dry_run:
-            print(
-                "# To persist in your shell: "
-                f"{_persist_hint('SPECIFY_FEATURE', branch_name)}"
-            )
+            print(f"# To persist in your shell: {_persist_hint('SPECIFY_FEATURE', branch_name)}")
 
     return 0
 

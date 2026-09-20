@@ -60,7 +60,7 @@ def build_query_string(query_params: dict[str, Any] | None) -> str:
     filtered = {k: v for k, v in query_params.items() if v is not None}
     if not filtered:
         return ""
-    return urllib.parse.urlencode(filtered, doseq=True)
+    return urllib.parse.urlencode(filtered, doseq=True, safe=":{}/")
 
 
 def resolve_operation_method_and_path(test_case: GeneratedTestCase) -> tuple[str, str]:

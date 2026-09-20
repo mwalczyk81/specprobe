@@ -1,8 +1,8 @@
 # Research & Architecture Decisions: Schema Hardening & Artifact Audit
 
-**Feature**: `005-schema-hardening-and-audit`  
-**Date**: 2026-09-20  
-**Status**: Completed  
+**Feature**: `005-schema-hardening-and-audit`
+**Date**: 2026-09-20
+**Status**: Completed
 
 ---
 

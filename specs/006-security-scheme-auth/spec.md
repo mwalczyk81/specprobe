@@ -8,6 +8,13 @@
 
 **Input**: User description: "Add security-scheme-aware auth to generate and export. `specprobe chunk` already extracts each OpenAPI operation's `security` requirements into `OperationChunk` metadata, but nothing downstream reads them. Every exported Postman request and `.http` request block currently has no `Authorization` header, api-key header, or query-param credential — even when the source spec declares the operation requires one (apiKey, http bearer/basic, or oauth2). Running an exported artifact against a real server that enforces auth returns 401/403 on every protected operation, defeating the point of generating runnable tests. Goal: when an operation's chunk has a `security` requirement, the generated test case and the exported artifact should reflect that requirement as a placeholder credential the user fills in, not silently omit it."
 
+## Clarifications
+
+### Session 2026-09-20
+- Q: When an OpenAPI operation defines optional security (i.e. the security list includes an empty requirement object `{}` alongside a security scheme), should generated test cases include the credential placeholder or treat the request as unauthenticated? → A: Include the credential placeholder and annotate the exported artifact comment with `(optional)` (e.g. `# Security: bearerAuth (optional)`).
+- Q: How should credential variable names be named in exported Postman collection variables ({{...}}) and REST Client file variables (@... =)? → A: Option A (Use the exact OpenAPI security scheme name, sanitized to alphanumeric and underscore characters, e.g. {{apiKeyAuth}}, @apiKeyAuth = <api_key>).
+- Q: How should OAuth2 scopes declared on an operation's security requirement be documented or represented in generated test cases and exported artifacts? → A: Option A (Document required scopes in metadata comments/descriptions, e.g. # Scopes: read:pets, write:pets in .http comments and Postman request descriptions, keeping the wire header as standard Bearer auth referencing the shared scheme variable).
+
 ---
 
 ## User Scenarios & Testing *(mandatory)*
@@ -32,32 +39,32 @@ When an API engineer or automation tool generates test cases from API specificat
 
 ### User Story 2 - Collection-Level Variable Parameterization in Postman Export (Priority: P1)
 
-When an API tester exports generated test cases to a Postman Collection, any required credentials across requests are parameterized as collection-level variables (e.g., `{{bearerToken}}`, `{{apiKey}}`, `{{basicAuthCredentials}}`) rather than hardcoding static placeholder strings into every individual request. The top-level collection declares these variables with placeholder default values.
+When an API tester exports generated test cases to a Postman Collection, any required credentials across requests are parameterized as collection-level variables named after the sanitized OpenAPI security scheme (e.g., `{{apiKeyAuth}}`, `{{bearerAuth}}`, `{{basicAuth}}`) rather than hardcoding static placeholder strings into every individual request. The top-level collection declares these variables with placeholder default values.
 
-**Why this priority**: In real-world API testing, entering credentials once at the collection level allows running all collection requests seamlessly, rather than forcing the tester to edit dozens of individual request headers.
+**Why this priority**: In real-world API testing, entering credentials once at the collection level allows running all collection requests seamlessly, rather than forcing the tester to edit dozens of individual request headers. Matching OpenAPI scheme identifiers maintains direct traceability to the specification.
 
-**Independent Test**: Can be tested by exporting test cases containing credential placeholders to a Postman collection and verifying that requests reference `{{...}}` collection variables and the collection's `variable` array contains corresponding definitions.
+**Independent Test**: Can be tested by exporting test cases containing credential placeholders to a Postman collection and verifying that requests reference `{{<sanitizedSchemeName>}}` collection variables and the collection's `variable` array contains corresponding definitions.
 
 **Acceptance Scenarios**:
 
-1. **Given** generated test cases containing HTTP Bearer credential placeholders, **When** exported to Postman format, **Then** requests use `Authorization: Bearer {{bearerToken}}` and the collection variable `bearerToken` is declared with default value `<token>`.
-2. **Given** generated test cases containing API key header or query placeholders, **When** exported to Postman format, **Then** requests reference `{{apiKey}}` (or `{{<schemeName>}}` if disambiguated) and the variable is declared in collection variables.
+1. **Given** generated test cases containing HTTP Bearer credential placeholders for scheme `bearerAuth`, **When** exported to Postman format, **Then** requests use `Authorization: Bearer {{bearerAuth}}` and the collection variable `bearerAuth` is declared with default value `<token>`.
+2. **Given** generated test cases containing API key header or query placeholders for scheme `apiKeyAuth`, **When** exported to Postman format, **Then** requests reference `{{apiKeyAuth}}` and the variable is declared in collection variables.
 3. **Given** multiple requests that share the same security scheme, **When** exported to Postman format, **Then** all requests reference the same collection variable, avoiding redundant variable declarations.
 
 ---
 
 ### User Story 3 - Top-Level File Variable Parameterization in REST Client (.http) Export (Priority: P1)
 
-When a developer exports generated test cases to a VS Code REST Client (`.http`) document, required credentials are parameterized as top-level file variables (e.g., `@bearerToken = <token>`, `@apiKey = <api_key>`) at the start of the file, and individual request blocks reference these variables (e.g., `Authorization: Bearer {{bearerToken}}`).
+When a developer exports generated test cases to a VS Code REST Client (`.http`) document, required credentials are parameterized as top-level file variables named after the sanitized OpenAPI security scheme (e.g., `@bearerAuth = <token>`, `@apiKeyAuth = <api_key>`) at the start of the file, and individual request blocks reference these variables (e.g., `Authorization: Bearer {{bearerAuth}}`).
 
 **Why this priority**: Developers using `.http` files execute requests directly in their IDE. Declaring file variables at the top of the file lets them paste an active JWT or API key once at line 3 and test all endpoints interactively.
 
-**Independent Test**: Can be tested by exporting protected test cases to `.http` format and verifying that the header contains top-level `@variable = ...` declarations and request blocks reference `{{variable}}`.
+**Independent Test**: Can be tested by exporting protected test cases to `.http` format and verifying that the header contains top-level `@<sanitizedSchemeName> = ...` declarations and request blocks reference `{{<sanitizedSchemeName>}}`.
 
 **Acceptance Scenarios**:
 
-1. **Given** test cases requiring HTTP Bearer authentication, **When** exported to `.http` format, **Then** the file header declares `@bearerToken = <token>` directly following `@baseUrl`, and requests include `Authorization: Bearer {{bearerToken}}`.
-2. **Given** test cases requiring API key authentication, **When** exported to `.http` format, **Then** the file header declares the corresponding API key variable (e.g., `@apiKey = <api_key>`) and requests reference `{{apiKey}}`.
+1. **Given** test cases requiring HTTP Bearer authentication for scheme `bearerAuth`, **When** exported to `.http` format, **Then** the file header declares `@bearerAuth = <token>` directly following `@baseUrl`, and requests include `Authorization: Bearer {{bearerAuth}}`.
+2. **Given** test cases requiring API key authentication for scheme `apiKeyAuth`, **When** exported to `.http` format, **Then** the file header declares the corresponding API key variable `@apiKeyAuth = <api_key>` and requests reference `{{apiKeyAuth}}`.
 3. **Given** test cases with zero authentication requirements, **When** exported to `.http` format, **Then** no authentication variables are declared at the top of the document.
 
 ---
@@ -75,12 +82,14 @@ When an API operation specifies multiple alternative security schemes (e.g., an 
 1. **Given** an operation with alternative schemes, **When** evaluated, **Then** the scheme is selected following the deterministic priority: (1) HTTP Bearer / OAuth2, (2) API Key (header), (3) API Key (query), (4) HTTP Basic.
 2. **Given** an operation with multiple alternative schemes, **When** exported to `.http` format, **Then** a comment `# Security: <selectedScheme> (alternatives: <otherScheme1>, ...)` is added to the request metadata block.
 3. **Given** an operation with compound security requirements (multiple schemes in a single requirement object, representing a logical AND), **When** exported, **Then** all required credentials for that compound requirement are included in the request.
+4. **Given** an operation declaring OAuth2 security with required scopes (e.g., `['read:pets', 'write:pets']`), **When** exported to `.http` and Postman, **Then** the request includes a `# Scopes: read:pets, write:pets` comment annotation (or Postman request description) while using the standard Bearer header placeholder `Authorization: Bearer {{<sanitizedSchemeName>}}`.
 
 ---
 
 ### Edge Cases
 
 - **Operation with explicit empty security (`security: []`)**: Overrides global API security. The system must treat this as public and omit all authentication headers/variables for this operation, even if the rest of the API requires authentication.
+- **Operation with optional security (`security: [..., {}]`)**: When an empty security object `{}` is listed as an alternative alongside a named scheme, the system treats the operation as authenticated for happy-path test generation, including the credential placeholder, and annotates the exported comment with `(optional)` (e.g., `# Security: <scheme> (optional)`).
 - **API key in query string with existing query parameters**: The API key placeholder query parameter must merge cleanly with existing query parameters without duplication or syntax errors.
 - **Missing security scheme definitions in component schemas**: If an operation specifies a security scheme name that lacks a corresponding component definition (e.g., partial specification chunk), the system must fall back to standard naming heuristics (e.g., matching "bearer", "token", "basic", or "api_key" substrings) rather than failing or omitting authentication.
 - **Multiple operations requiring different API keys**: If an API defines multiple distinct API key schemes (e.g., `headerKey` and `queryKey`), the exporter must generate distinct variable names (e.g., `@headerKey` and `@queryKey`) to prevent collisions.
@@ -97,20 +106,22 @@ When an API operation specifies multiple alternative security schemes (e.g., an 
 - **FR-004**: If an operation does not require authentication (or explicitly declares `security: []`), the system MUST NOT add authentication headers or query parameters.
 - **FR-005**: When multiple alternative security schemes are specified for an operation, the system MUST choose deterministically using the priority order: HTTP Bearer / OAuth2 > API Key (header) > API Key (query) > HTTP Basic.
 - **FR-006**: When an operation declares compound security requirements (multiple schemes within a single requirement dictionary), the system MUST generate placeholders for all schemes in that requirement.
-- **FR-007**: Postman exporter MUST parameterize credential placeholders into collection-level variables (e.g., `{{bearerToken}}`, `{{apiKey}}`) and declare them in the top-level collection `variable` array with default placeholder values.
-- **FR-008**: REST Client (`.http`) exporter MUST parameterize credential placeholders into top-level file variables (e.g., `@bearerToken = <token>`) declared at the beginning of the file and referenced in request blocks via `{{variableName}}`.
+- **FR-007**: Postman exporter MUST parameterize credential placeholders into collection-level variables named after the exact OpenAPI security scheme identifier sanitized to alphanumeric and underscore characters (e.g., `{{bearerAuth}}`, `{{apiKeyAuth}}`) and declare them in the top-level collection `variable` array with default placeholder values.
+- **FR-008**: REST Client (`.http`) exporter MUST parameterize credential placeholders into top-level file variables named after the exact OpenAPI security scheme identifier sanitized to alphanumeric and underscore characters (e.g., `@bearerAuth = <token>`, `@apiKeyAuth = <api_key>`) declared at the beginning of the file and referenced in request blocks via `{{variableName}}`.
 - **FR-009**: The REST Client exporter MUST annotate requests having security requirements with a comment indicating the applied security scheme (e.g., `# Security: bearerAuth`). If alternatives existed, the comment MUST list the alternatives.
 - **FR-010**: Exporters MUST avoid creating duplicate collection or file variable declarations when multiple requests utilize the same security scheme.
 - **FR-011**: If security scheme component definitions are missing or unresolvable from specification chunks, the system MUST apply deterministic heuristics based on the scheme identifier name to derive the appropriate scheme type and location.
 - **FR-012**: Artifact generation and export MUST remain 100% deterministic and execute zero LLM calls, adhering to SpecProbe Constitution Principle II.
+- **FR-013**: When an operation declares optional authentication via an empty security object (`{}`) alongside a named scheme, the system MUST include the credential placeholder in the generated test case and annotate the exported request with an `(optional)` status comment.
+- **FR-014**: When an operation declares OAuth2 security with specific scopes, exported artifacts MUST document the required scopes in request comments or descriptions (e.g., `# Scopes: read:pets, write:pets` in `.http` request comments and in the Postman request description), while keeping the wire header formatted as standard Bearer authentication referencing the shared scheme variable.
 
 ---
 
 ### Key Entities
 
-- **SecurityRequirement**: Represents an operation's security mandate as defined in OpenAPI (`list[dict[str, list[str]]]`), indicating one or more alternative security schemes and optional scopes.
+- **SecurityRequirement**: Represents an operation's security mandate as defined in OpenAPI (`list[dict[str, list[str]]]`), indicating one or more alternative security schemes and optional scopes. When OAuth2 scopes are specified, they are preserved and surfaced in exported documentation comments.
 - **SecuritySchemeDefinition**: Represents the schema and transport location of an authentication scheme (type: `http`, `apiKey`, `oauth2`; in: `header`, `query`, `cookie`; name: parameter or header name; scheme: `bearer`, `basic`).
-- **AuthCredentialPlaceholder**: Standardized representation of a resolved credential placeholder for a test case (transport: `header` or `query`; key: header/parameter name; variable_name: identifier for exporter parameterization; default_value: placeholder string such as `<token>` or `<api_key>`).
+- **AuthCredentialPlaceholder**: Standardized representation of a resolved credential placeholder for a test case (transport: `header` or `query`; key: header/parameter name; variable_name: identifier matching the exact OpenAPI security scheme name sanitized to alphanumeric and underscore characters for exporter parameterization; default_value: placeholder string such as `<token>` or `<api_key>`).
 
 ---
 
