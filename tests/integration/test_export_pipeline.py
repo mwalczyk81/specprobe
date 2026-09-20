@@ -87,7 +87,13 @@ def test_full_pipeline_search_generate_export(tmp_path: Path) -> None:
                     "response": {
                         "status_code": 201 if "create" in op_id.lower() else 200,
                         "headers": {"Content-Type": "application/json"},
-                        "schema_shape": {"type": "object", "properties": ["id", "name"]},
+                        "schema_shape": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "integer"},
+                                "name": {"type": "string"},
+                            },
+                        },
                     },
                     "tags": ["pets"],
                 }

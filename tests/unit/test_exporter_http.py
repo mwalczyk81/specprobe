@@ -27,7 +27,14 @@ def sample_get_test_case() -> GeneratedTestCase:
         response=ResponseAssertion(
             status_code=200,
             headers={"Content-Type": "application/json"},
-            schema_shape={"type": "object", "properties": ["id", "name", "tag"]},
+            schema_shape={
+                "type": "object",
+                "properties": {
+                    "id": {"type": "integer"},
+                    "name": {"type": "string"},
+                    "tag": {"type": "string"},
+                },
+            },
         ),
         tags=["pets", "store"],
     )
@@ -50,7 +57,13 @@ def sample_post_test_case() -> GeneratedTestCase:
         response=ResponseAssertion(
             status_code=201,
             headers={"Content-Type": "application/json"},
-            schema_shape={"type": "object", "properties": ["id", "name"]},
+            schema_shape={
+                "type": "object",
+                "properties": {
+                    "id": {"type": "integer"},
+                    "name": {"type": "string"},
+                },
+            },
         ),
         tags=["pets"],
     )
@@ -85,7 +98,7 @@ def test_single_get_request(sample_get_test_case: GeneratedTestCase) -> None:
         "# Operation: showPetById\n"
         "# Description: Retrieve specific pet by ID\n"
         "# Expected Status: 200\n"
-        "# Expected Properties: id, name, tag\n"
+        "# Expected Schema: object (properties: id, name, tag)\n"
         "GET {{baseUrl}}/pets/42 HTTP/1.1\n"
         "Accept: application/json"
     )
@@ -93,8 +106,8 @@ def test_single_get_request(sample_get_test_case: GeneratedTestCase) -> None:
     assert expected_block in doc
 
 
-def test_unresolved_ref_schema_shape_omits_property_comment() -> None:
-    """An unresolved $ref schema_shape must not emit '# Expected Properties:' in .http output."""
+def test_none_schema_shape_omits_schema_comment() -> None:
+    """A schema_shape=None must not emit '# Expected Schema:' in .http output."""
     tc = GeneratedTestCase(
         operation_id="getPet",
         description="Get pet by ID",
@@ -107,9 +120,9 @@ def test_unresolved_ref_schema_shape_omits_property_comment() -> None:
             body=None,
         ),
         response=ResponseAssertion(
-            status_code=200,
+            status_code=204,
             headers={"Content-Type": "application/json"},
-            schema_shape={"$ref": "#/components/schemas/Pet"},
+            schema_shape=None,
         ),
         tags=["pets"],
     )
@@ -117,12 +130,12 @@ def test_unresolved_ref_schema_shape_omits_property_comment() -> None:
 
     # Must retain metadata and request line
     assert "# Operation: getPet" in doc
-    assert "# Expected Status: 200" in doc
+    assert "# Expected Status: 204" in doc
     assert "GET {{baseUrl}}/pets/1 HTTP/1.1" in doc
 
-    # Must NOT emit expected properties or $ref
+    # Must NOT emit expected schema
+    assert "# Expected Schema:" not in doc
     assert "# Expected Properties:" not in doc
-    assert "$ref" not in doc
 
 
 def test_post_request_with_json_body(sample_post_test_case: GeneratedTestCase) -> None:
@@ -208,6 +221,42 @@ def test_missing_optional_elements() -> None:
     assert "GET {{baseUrl}}/healthz HTTP/1.1\n" in doc
 
 
+def test_defs_not_listed_as_expected_property() -> None:
+    """Verify an unreferenced-looking '$defs' block never leaks into the 'Expected
+    Properties' comment (regression: array schema with only $defs+items $ref, no
+    'properties' key, previously fell through to the raw-key fallback and printed
+    'Expected Properties: $defs').
+    """
+    tc = GeneratedTestCase(
+        operation_id="listPets",
+        description="List pets with a limit",
+        request=RequestFixture(
+            method="GET",
+            path="/pets",
+            path_params={},
+            query_params={"limit": "10"},
+            headers={},
+            body=None,
+        ),
+        response=ResponseAssertion(
+            status_code=200,
+            headers={},
+            schema_shape={
+                "type": "array",
+                "$defs": {"Integer": {"type": "integer", "format": "int64"}},
+                "items": {"$ref": "#/$defs/Integer"},
+            },
+        ),
+        tags=["pets"],
+    )
+
+    doc = generate_http_document([tc])
+
+    assert "$defs" not in doc
+    assert "# Expected Properties:" not in doc
+    assert "# Expected Schema: array" in doc
+
+
 def test_multiple_requests_separation(
     sample_get_test_case: GeneratedTestCase,
     sample_post_test_case: GeneratedTestCase,
@@ -289,8 +338,11 @@ def generated_test_case_strategy(draw: Any) -> GeneratedTestCase:
             st.fixed_dictionaries(
                 {
                     "type": st.just("object"),
-                    "properties": st.lists(
-                        st.text(min_size=1, max_size=10, alphabet="abcdefghijklmnopqrstuvwxyz"),
+                    "properties": st.dictionaries(
+                        keys=st.text(
+                            min_size=1, max_size=10, alphabet="abcdefghijklmnopqrstuvwxyz"
+                        ),
+                        values=st.fixed_dictionaries({"type": st.just("string")}),
                         max_size=4,
                     ),
                 }

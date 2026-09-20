@@ -1,14 +1,73 @@
 """Pydantic data models for generated API test cases."""
 
+import re
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from jsonschema import Draft7Validator
+from jsonschema.exceptions import SchemaError
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 __all__ = [
     "RequestFixture",
     "ResponseAssertion",
     "GeneratedTestCase",
 ]
+
+_LOCAL_REF_PATTERN = re.compile(r"^#/(\$defs|definitions)/([^/]+)$")
+
+# Keys that, if present at the top level of a schema_shape, indicate it actually
+# constrains something. A schema with none of these (e.g. only "$defs"/"definitions",
+# or purely descriptive metadata) is a no-op assertion at runtime: Ajv accepts anything
+# against it, so pm.response.to.have.jsonSchema() passes regardless of the response body.
+_MEANINGFUL_SCHEMA_KEYS = {
+    "type",
+    "$ref",
+    "properties",
+    "items",
+    "enum",
+    "const",
+    "anyOf",
+    "oneOf",
+    "allOf",
+    "not",
+    "required",
+    "pattern",
+    "format",
+    "minimum",
+    "maximum",
+    "minLength",
+    "maxLength",
+    "minItems",
+    "maxItems",
+    "additionalProperties",
+    "patternProperties",
+}
+
+
+def _find_unresolvable_refs(node: Any, local_defs: set[str]) -> list[str]:
+    """Recursively collect every '$ref' pointer in a schema tree that cannot resolve
+    within the schema's own 'definitions'/'$defs' block.
+
+    A schema_shape must be fully self-contained: Postman's Ajv engine evaluates it in
+    isolation, with no access to the source OpenAPI document, so an OpenAPI-style
+    pointer like '#/components/schemas/Pet' can never resolve, wherever it appears in
+    the tree (a bare top-level $ref, or nested inside 'items', 'properties', etc.).
+    """
+    unresolvable: list[str] = []
+    if isinstance(node, dict):
+        ref = node.get("$ref")
+        if isinstance(ref, str):
+            match = _LOCAL_REF_PATTERN.match(ref)
+            if not match or match.group(2) not in local_defs:
+                unresolvable.append(ref)
+        for key, value in node.items():
+            if key == "$ref":
+                continue
+            unresolvable.extend(_find_unresolvable_refs(value, local_defs))
+    elif isinstance(node, list):
+        for item in node:
+            unresolvable.extend(_find_unresolvable_refs(item, local_defs))
+    return unresolvable
 
 
 class RequestFixture(BaseModel):
@@ -58,8 +117,59 @@ class ResponseAssertion(BaseModel):
     )
     schema_shape: dict[str, Any] | None = Field(
         default=None,
-        description="Expected JSON schema structure or expected field assertions for the response.",
+        description="Expected JSON schema structure conforming strictly to JSON Schema Draft 7.",
     )
+
+    @field_validator("schema_shape")
+    @classmethod
+    def validate_schema_shape(cls, v: Any) -> dict[str, Any] | None:
+        """Validate that schema_shape conforms to JSON Schema Draft 7 and is self-contained."""
+        if v is None:
+            return None
+        if not isinstance(v, dict):
+            raise ValueError(f"schema_shape must be a dictionary or None, got {type(v).__name__}")
+
+        try:
+            Draft7Validator.check_schema(v)
+        except SchemaError as err:
+            raise ValueError(f"Invalid JSON Schema Draft 7 structure: {err.message}") from err
+
+        # Self-contained guarantee: reject any $ref anywhere in the tree (bare top-level,
+        # or nested inside "items", "properties", "anyOf", etc.) that doesn't resolve to
+        # a local "$defs"/"definitions" entry within this same schema_shape document.
+        # This runs BEFORE the "meaningful content" check below so a bare unresolved
+        # $ref (e.g. {"$ref": "#/components/schemas/Pet"}) gets the specific, actionable
+        # "unresolvable $ref" message rather than the generic one -- the retry prompt is
+        # built from this exact error text, and the model needs to know it's the $ref
+        # that's the problem, not just that the schema lacks a "type".
+        local_defs = set(v.get("$defs", {})) | set(v.get("definitions", {}))
+        unresolvable_refs = _find_unresolvable_refs(v, local_defs)
+        if unresolvable_refs:
+            raise ValueError(
+                f"schema_shape contains unresolvable $ref pointer(s) {unresolvable_refs} "
+                "that do not resolve to a local '$defs'/'definitions' entry within this "
+                "schema. Schemas must be self-contained: inline structural definitions or "
+                "reference a local '#/$defs/<name>' entry, never an OpenAPI-document-relative "
+                "pointer like '#/components/schemas/...'."
+            )
+
+        # Reject schemas with no actual validation content, e.g. {"$defs": {"Pet": {...}}}
+        # with nothing referencing "Pet" via "type"/"properties"/"items"/"$ref". This is
+        # syntactically valid Draft 7 (an unconstrained schema matches anything) but it
+        # means the generated assertion silently validates nothing. Any unresolvable
+        # $ref was already caught above, so a "$ref" reaching this point is known to
+        # resolve locally and counts as meaningful content in its own right.
+        if not (_MEANINGFUL_SCHEMA_KEYS & v.keys()):
+            raise ValueError(
+                "schema_shape has no meaningful validation content: it must declare at "
+                "least one of "
+                f"{sorted(_MEANINGFUL_SCHEMA_KEYS)}. A schema containing only "
+                "'$defs'/'definitions' (unreferenced) or metadata keys is a no-op "
+                "assertion at runtime — inline the definitions into 'type'/'properties'/"
+                "'items' instead of leaving them unused."
+            )
+
+        return v
 
 
 class GeneratedTestCase(BaseModel):

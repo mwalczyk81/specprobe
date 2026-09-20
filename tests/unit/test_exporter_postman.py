@@ -7,7 +7,8 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from specprobe.exporter.postman import extract_schema_properties, generate_postman_collection
+from specprobe.exporter.postman import generate_postman_collection
+from specprobe.exporter.utils import extract_schema_properties
 from specprobe.generator.models import GeneratedTestCase, RequestFixture, ResponseAssertion
 
 
@@ -28,7 +29,14 @@ def sample_test_case() -> GeneratedTestCase:
         response=ResponseAssertion(
             status_code=200,
             headers={"Content-Type": "application/json"},
-            schema_shape={"type": "object", "properties": ["id", "name", "tag"]},
+            schema_shape={
+                "type": "object",
+                "properties": {
+                    "id": {"type": "integer"},
+                    "name": {"type": "string"},
+                    "tag": {"type": "string"},
+                },
+            },
         ),
         tags=["pets", "store"],
     )
@@ -241,12 +249,10 @@ def test_pm_test_assertions(sample_test_case: GeneratedTestCase) -> None:
     assert 'pm.test("Header Content-Type is present", function () {' in script_text
     assert 'pm.response.to.have.header("Content-Type");' in script_text
 
-    # 3. Property assertions
-    assert 'pm.test("Response has expected properties", function () {' in script_text
-    assert "var jsonData = pm.response.json();" in script_text
-    assert 'pm.expect(jsonData).to.have.property("id");' in script_text
-    assert 'pm.expect(jsonData).to.have.property("name");' in script_text
-    assert 'pm.expect(jsonData).to.have.property("tag");' in script_text
+    # 3. JSON Schema assertions
+    assert 'pm.test("Response matches JSON Schema", function () {' in script_text
+    assert "var schema = {" in script_text
+    assert "pm.response.to.have.jsonSchema(schema);" in script_text
 
 
 def test_operation_id_traceability(sample_test_case: GeneratedTestCase) -> None:
@@ -306,8 +312,8 @@ def test_extract_schema_properties_helper() -> None:
     )
 
 
-def test_unresolved_ref_schema_shape_omits_property_assertions() -> None:
-    """An unresolved $ref schema_shape must not emit property test assertions."""
+def test_none_schema_shape_omits_json_schema_assertions() -> None:
+    """A test case with schema_shape=None must not emit jsonSchema assertions."""
     tc = GeneratedTestCase(
         operation_id="getPet",
         description="Get pet by ID",
@@ -320,9 +326,9 @@ def test_unresolved_ref_schema_shape_omits_property_assertions() -> None:
             body=None,
         ),
         response=ResponseAssertion(
-            status_code=200,
+            status_code=204,
             headers={"Content-Type": "application/json"},
-            schema_shape={"$ref": "#/components/schemas/Pet"},
+            schema_shape=None,
         ),
         tags=["pets"],
     )
@@ -331,12 +337,12 @@ def test_unresolved_ref_schema_shape_omits_property_assertions() -> None:
     script_text = "\n".join(script["exec"])
 
     # Must retain status code and header assertions
-    assert 'pm.test("Status code is 200", function () {' in script_text
+    assert 'pm.test("Status code is 204", function () {' in script_text
     assert 'pm.test("Header Content-Type is present", function () {' in script_text
 
-    # Must NOT emit property assertion block or assert on $ref
-    assert "Response has expected properties" not in script_text
-    assert "$ref" not in script_text
+    # Must NOT emit jsonSchema assertion block
+    assert "Response matches JSON Schema" not in script_text
+    assert "jsonSchema" not in script_text
 
 
 @st.composite
@@ -407,8 +413,11 @@ def generated_test_case_strategy(draw: st.DrawFn) -> GeneratedTestCase:
             st.fixed_dictionaries(
                 {
                     "type": st.just("object"),
-                    "properties": st.lists(
-                        st.text(min_size=1, max_size=10, alphabet="abcdefghijklmnopqrstuvwxyz"),
+                    "properties": st.dictionaries(
+                        keys=st.text(
+                            min_size=1, max_size=10, alphabet="abcdefghijklmnopqrstuvwxyz"
+                        ),
+                        values=st.fixed_dictionaries({"type": st.just("string")}),
                         max_size=4,
                     ),
                 }

@@ -138,6 +138,7 @@ def extract_schema_properties(schema_shape: Any) -> list[str]:
                 return [str(p) for p in item_props if p]
             elif isinstance(item_props, dict):
                 return [str(k) for k in item_props.keys()]
+
             if "$ref" in items:
                 return []
 
@@ -146,7 +147,17 @@ def extract_schema_properties(schema_shape: Any) -> list[str]:
             return []
 
         # If schema_shape is a plain key-value dict representing object properties directly
-        excluded_keys = {"$ref", "$schema", "description", "items", "required", "title", "type"}
+        excluded_keys = {
+            "$defs",
+            "$ref",
+            "$schema",
+            "definitions",
+            "description",
+            "items",
+            "required",
+            "title",
+            "type",
+        }
         candidate_keys = [str(k) for k in schema_shape.keys() if k not in excluded_keys]
         if candidate_keys:
             return candidate_keys
@@ -154,3 +165,41 @@ def extract_schema_properties(schema_shape: Any) -> list[str]:
         return [str(p) for p in schema_shape if isinstance(p, (str, int))]
 
     return []
+
+
+def format_schema_signature(schema_shape: Any) -> str | None:
+    """Format expected response schema into a single-line .http comment signature.
+
+    Parameters
+    ----------
+    schema_shape : Any
+        Expected schema dictionary, list of properties, or None.
+
+    Returns
+    -------
+    str | None
+        Single-line comment string like '# Expected Schema: object (properties: id, name)'
+        or None if schema_shape is empty/absent.
+    """
+    if not schema_shape:
+        return None
+
+    type_str = "object"
+    props = extract_schema_properties(schema_shape)
+
+    if isinstance(schema_shape, dict):
+        raw_type = schema_shape.get("type")
+        if raw_type == "array":
+            items = schema_shape.get("items")
+            if isinstance(items, dict) and (items.get("type") == "object" or "properties" in items):
+                type_str = "array of object"
+            elif isinstance(items, dict) and items.get("type"):
+                type_str = f"array of {items.get('type')}"
+            else:
+                type_str = "array"
+        elif isinstance(raw_type, str) and raw_type:
+            type_str = raw_type
+
+    if props:
+        return f"# Expected Schema: {type_str} (properties: {', '.join(props)})"
+    return f"# Expected Schema: {type_str}"

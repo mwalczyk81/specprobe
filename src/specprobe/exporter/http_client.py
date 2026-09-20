@@ -4,7 +4,7 @@ import json
 
 from specprobe.exporter.utils import (
     build_query_string,
-    extract_schema_properties,
+    format_schema_signature,
     resolve_operation_method_and_path,
     substitute_path_params,
 )
@@ -41,9 +41,9 @@ def _build_request_block(test_case: GeneratedTestCase) -> str:
 
     lines.append(f"# Expected Status: {test_case.response.status_code}")
 
-    properties = extract_schema_properties(test_case.response.schema_shape)
-    if properties:
-        lines.append(f"# Expected Properties: {', '.join(properties)}")
+    schema_sig = format_schema_signature(test_case.response.schema_shape)
+    if schema_sig:
+        lines.append(schema_sig)
 
     # Resolve HTTP method and path template
     method, path_template = resolve_operation_method_and_path(test_case)
