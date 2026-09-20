@@ -1,8 +1,8 @@
 # Quickstart: LLM Test Generation & Filter-Only Search
 
-**Feature**: `003-generate-llm-tests`  
-**Date**: 2026-09-19  
-**Status**: Ready for Validation  
+**Feature**: `003-generate-llm-tests`
+**Date**: 2026-09-19
+**Status**: Ready for Validation
 
 This guide demonstrates end-to-end usage of the `specprobe generate` command and the updated filter-only `specprobe search` command.
 

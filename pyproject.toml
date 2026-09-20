@@ -15,6 +15,7 @@ dependencies = [
     "qdrant-client>=1.19.0",
     "fastembed>=0.8.0",
     "litellm>=1.0.0",
+    "rich>=15.0.0",
 ]
 
 [project.scripts]
@@ -26,8 +27,11 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6.168.0",
+    "pre-commit>=4.6.2",
     "pytest>=8.0.0",
     "ruff>=0.16.8",
+    "ty>=0.0.82",
 ]
 
 [tool.pytest.ini_options]

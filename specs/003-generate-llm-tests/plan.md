@@ -21,21 +21,21 @@ Implement the `specprobe generate` CLI command and companion unranked filter-onl
 
 ## Technical Context
 
-**Language/Version**: Python 3.11+ (tested on Python 3.14.7)  
-**Primary Dependencies**: `click>=8.1.0`, `pydantic>=2.0.0`, `litellm>=1.0.0`, `qdrant-client>=1.19.0`, `fastembed>=0.8.0`  
-**Storage**: File-based JSON disk cache (`.specprobe/cache/`, configurable via `--cache-dir` or `SPECPROBE_CACHE_DIR`)  
-**Testing**: `pytest>=8.0.0` with `uv run pytest`  
-**Target Platform**: Windows, Linux, macOS  
-**Project Type**: CLI developer tool  
+**Language/Version**: Python 3.11+ (tested on Python 3.14.7)
+**Primary Dependencies**: `click>=8.1.0`, `pydantic>=2.0.0`, `litellm>=1.0.0`, `qdrant-client>=1.19.0`, `fastembed>=0.8.0`
+**Storage**: File-based JSON disk cache (`.specprobe/cache/`, configurable via `--cache-dir` or `SPECPROBE_CACHE_DIR`)
+**Testing**: `pytest>=8.0.0` with `uv run pytest`
+**Target Platform**: Windows, Linux, macOS
+**Project Type**: CLI developer tool
 **Performance Goals**:
 - Cache-hit generation latency < 1 second for batches up to 50 operations (SC-002).
 - Filter-only unranked search retrieval < 100ms for collections up to 1,000 operations.
-- Single happy-path test case per operation to minimize local inference token consumption and runtime.  
+- Single happy-path test case per operation to minimize local inference token consumption and runtime.
 **Constraints**:
 - 100% local-first privacy: LM Studio default, no remote outbound sockets opened without explicit opt-in env vars (Principle III & IV).
 - Exactly one retry on schema validation failure; fail-safe batch execution (Principle V).
 - Complete traceability to source specification `operationId` (Principle V).
-- Downstream artifact generators remain zero-LLM consumers of the emitted JSONL test cases (Principle II).  
+- Downstream artifact generators remain zero-LLM consumers of the emitted JSONL test cases (Principle II).
 **Scale/Scope**: Specification batches from single operations up to hundreds of endpoints across complex enterprise APIs.
 
 ---

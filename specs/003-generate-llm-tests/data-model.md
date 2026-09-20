@@ -1,8 +1,8 @@
 # Data Model: LLM Test Generation & Filter-Only Search
 
-**Feature**: `003-generate-llm-tests`  
-**Date**: 2026-09-19  
-**Status**: Completed  
+**Feature**: `003-generate-llm-tests`
+**Date**: 2026-09-19
+**Status**: Completed
 
 ---
 

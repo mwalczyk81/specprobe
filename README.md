@@ -3,8 +3,8 @@
 A CLI that turns an OpenAPI spec into a searchable, locally-indexed knowledge base and generates schema-validated API test cases from it — no cloud calls required unless you opt in.
 
 ```
-spec.yaml → chunk → index → search → generate
-           (parse)  (embed)  (retrieve)  (LLM + validate)
+spec.yaml → chunk → index → search → generate → export
+           (parse)  (embed)  (retrieve)  (LLM + validate)  (runnable artifacts)
 ```
 
 ## What it does
@@ -16,6 +16,8 @@ spec.yaml → chunk → index → search → generate
 **`search`** — Natural-language retrieval over the index, in three modes: `dense` (cosine similarity), `hybrid` (dense + sparse fused with RRF), or `hybrid-rerank` (hybrid retrieval + local cross-encoder reranking). Supports metadata filters (`--tag`, `--method`, `--deprecated`, `--source-title`, `--source-version`).
 
 **`generate`** — Takes `search --full` output and asks an LLM to produce a happy-path test case per operation: concrete request fixtures, expected status/headers, and a schema-shape assertion. Every output is validated against a strict Pydantic schema; a validation failure triggers exactly one self-correcting retry with the error fed back to the model, then the operation is marked failed and the batch continues. Calls are cached to disk (SHA-256 of messages + model + temperature) so repeat runs and CI are zero-cost and don't need a live model.
+
+**`export`** — Deterministically transforms `GeneratedTestCase` JSONL records into runnable test artifacts: Postman Collection v2.1 JSON (with primary tag folders and embedded `pm.test` assertions) and VS Code REST Client `.http` files (with `###` request blocks and metadata documentation). Strictly zero-LLM, zero-network, and 100% byte-identical across runs per Constitution Principle II.
 
 ## Design principles
 
@@ -53,9 +55,14 @@ uv run specprobe search "cancel a pending order" --full --limit 3 \
 # 5. Spec-wide generation: extract an entire spec unranked and generate tests for all operations
 uv run specprobe search --source-title "Petstore API" --full \
   | uv run specprobe generate
+
+# 6. Export test cases to runnable Postman collection and REST Client .http files
+uv run specprobe search --source-title "Petstore API" --full \
+  | uv run specprobe generate \
+  | uv run specprobe export --format both --output ./exported_tests
 ```
 
-`generate` streams one JSON Lines object per successful test case to stdout and per-operation error diagnostics to stderr, so it composes with the rest of the pipeline and with CI without extra plumbing.
+`generate` streams one JSON Lines object per successful test case to stdout and per-operation error diagnostics to stderr, which can be piped directly into `export` to produce runnable test artifacts without intermediate files.
 
 ## CLI reference
 
@@ -65,10 +72,11 @@ uv run specprobe search --source-title "Petstore API" --full \
 | `index [chunk_file]` | Ingest chunks into the vector store (file arg or stdin) | `--index-dir`, `--stats` (collection health/counts) |
 | `search [query]` | Natural-language retrieval or unranked filter-only spec extraction | `--mode {dense,hybrid,hybrid-rerank}`, `-n/--limit`, `--tag`, `--method`, `--deprecated/--no-deprecated`, `--source-title`, `--source-version`, `--full` |
 | `generate [results_file]` | LLM test-case generation from search results (file arg or stdin) | `--model`, `--api-base`, `--temperature`, `--cache-dir`, `--no-cache` |
+| `export [test_cases_file]` | Transform generated test cases into runnable Postman or REST Client artifacts (file arg or stdin) | `--format {both,postman,http}`, `-o/--output <path/dir>`, `--collection-name <name>`, `--base-url <url>` |
 
 When `search` is called without a `<query>`, it operates in filter-only mode: all operations matching the provided metadata filter(s) are retrieved unranked (`score: 0.0`) with unlimited pagination by default (or respecting explicit `-n/--limit`). Either `<query>` or at least one metadata filter must be provided.
 
-Every command also accepts input via stdin where a file argument is optional, so the four stages pipe directly into each other.
+Every command also accepts input via stdin where a file argument is optional, so all five stages pipe directly into each other.
 
 ## Configuration
 
@@ -104,6 +112,7 @@ src/specprobe/
 ├── index/       # FastEmbed embedding + Qdrant storage
 ├── search/      # Multi-mode retrieval engine
 ├── generator/   # LLM gateway, prompt synthesis, validation/retry, disk cache
+├── exporter/    # Deterministic Postman and REST Client artifact serializers
 ├── formatters/  # Output serialization (JSONL, etc.)
 ├── models.py    # Shared Pydantic models
 └── cli.py       # Click command group

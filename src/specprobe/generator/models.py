@@ -16,6 +16,14 @@ class RequestFixture(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
+    method: str | None = Field(
+        default=None,
+        description="HTTP request method (e.g. GET, POST, PUT, DELETE).",
+    )
+    path: str | None = Field(
+        default=None,
+        description="Endpoint URI path template (e.g. /pets/{petId}).",
+    )
     path_params: dict[str, Any] = Field(
         default_factory=dict,
         description="Resolved path parameters substituting placeholders in the endpoint path.",

@@ -1,15 +1,20 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-- Version change: 1.0.0 -> 1.1.0 (Tooling Stack Amendment)
-- Rationale: Replaced Poetry with uv as the mandatory build tool, virtual environment manager,
-  and dependency resolver. Under the Constitution's Versioning Policy, Core Principles I-VI
-  and architectural determinism/privacy guarantees remain unchanged; this amends tooling requirements
-  and workflow quality gates, qualifying as a MINOR version bump.
+- Version change: 1.2.0 -> 1.3.0 (Static Type Checking & Pre-commit Enforcement)
+- Rationale: Adds ty as the mandatory static type checker and pre-commit as mandatory commit-time
+  enforcement (Ruff lint/format, standard hygiene hooks, markdownlint-cli2) to Technology Stack &
+  Tooling Constraints and Development Workflow & Quality Gates. This formalizes tooling already in
+  use in the repository (`.pre-commit-config.yaml`, `ty` dev dependency) that was previously
+  unrecorded here. Expanded tooling requirement, qualifying as a MINOR version bump under the
+  Constitution's Versioning Policy.
 - Technology Stack & Tooling Constraints modifications:
-  * Dependency & Package Management: Replaced Poetry mandate and poetry.lock with uv and uv.lock.
+  * Added Static Type Checking: ty (`ty`) is the mandatory static type checker for `src/`.
+  * Added Pre-commit Enforcement: `pre-commit` MUST be configured to run Ruff, standard hygiene
+    hooks, and markdownlint-cli2, with mutating hooks excluded from `tests/fixtures/golden/`.
 - Development Workflow & Quality Gates modifications:
-  * Pre-Merge Test Execution: Updated quality gate command from `poetry run pytest` to `uv run pytest`.
+  * Added Static Type Verification Gate: `uv run ty check src/` must execute with zero diagnostics.
+  * Added Pre-commit Verification Gate: `uv run pre-commit run --all-files` must pass all hooks.
 - Added sections: None
 - Removed sections: None
 - Deferred items / TODOs: None
@@ -74,7 +79,10 @@ Every feature, command, and module MUST ship with comprehensive automated test c
 SpecProbe development and execution environment is strictly standardized on the following tooling:
 
 - **Runtime**: Python 3.11 or higher (`>= 3.11`). Modern language capabilities, built-in structural pattern matching, and comprehensive type hinting must be utilized.
-- **Dependency & Package Management**: uv is the mandatory build tool, virtual environment manager, and dependency resolver. All dependencies must be locked in `uv.lock`.
+- **Dependency & Package Management**: uv (`uv`) is the mandatory build tool, virtual environment manager, and dependency resolver. All dependencies must be locked in `uv.lock`. Command execution must route through `uv run`.
+- **Code Quality & Formatting**: Ruff (`ruff`) is the mandatory linter and code formatter. Configuration is maintained in `pyproject.toml`.
+- **Static Type Checking**: ty (`ty`) is the mandatory static type checker. All modules under `src/` MUST pass `ty check src/` with zero diagnostics. `dict[str, Any]` at OpenAPI parsing and LLM completion boundaries is an accepted, intentional exception and MUST NOT be narrowed speculatively or blanket-suppressed to satisfy the checker.
+- **Pre-commit Enforcement**: `pre-commit` MUST be configured via `.pre-commit-config.yaml` to run, at minimum: Ruff (lint + format), standard hygiene hooks (trailing whitespace, end-of-file, YAML/JSON syntax validation), and `markdownlint-cli2` in lint-only mode (no auto-formatting) against specification and documentation Markdown. Any mutating (auto-fixing) hook MUST exclude `tests/fixtures/golden/` to preserve the byte-identical golden artifact fixtures required by Principle VI.
 - **CLI Framework**: Click (`click`) is the standard CLI framework for all user-facing commands, argument validation, and subcommands.
 - **Testing Framework**: pytest (`pytest`) is the standard testing engine for unit, functional, and integration tests.
 - **LLM Gateway**: LiteLLM (`litellm`) provides uniform routing, parameter mapping, and local/cloud provider abstraction.
@@ -85,6 +93,9 @@ SpecProbe development and execution environment is strictly standardized on the 
 
 All contributions and feature workflows MUST satisfy the following quality gates:
 
+- **Code Quality & Style Verification**: `uv run ruff check .` and `uv run ruff format --check .` must execute with zero lint violations or formatting diffs.
+- **Static Type Verification**: `uv run ty check src/` must execute with zero diagnostics.
+- **Pre-commit Verification**: `uv run pre-commit run --all-files` must pass all configured hooks.
 - **Pre-Merge Test Execution**: `uv run pytest` must execute and pass 100% of test cases cleanly.
 - **Deterministic Pipeline Verification**: Exporters for Postman collections and `.http` files must pass verification tests without invoking network requests or mock LLM sessions.
 - **Local Privacy Verification**: Embedding and reranking tests must confirm that no remote outbound sockets are opened.
@@ -104,4 +115,4 @@ This Constitution is the supreme design and implementation policy for SpecProbe.
   - **PATCH**: Non-semantic clarifications, typo corrections, and minor wording refinements.
 - **Compliance Review**: Every implementation plan (`plan.md`) and task breakdown (`tasks.md`) produced by Spec Kit workflows must explicitly verify compliance with these principles before code execution begins.
 
-**Version**: 1.1.0 | **Ratified**: 2026-09-18 | **Last Amended**: 2026-09-19
+**Version**: 1.3.0 | **Ratified**: 2026-09-18 | **Last Amended**: 2026-09-19

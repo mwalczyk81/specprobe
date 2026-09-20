@@ -1,6 +1,10 @@
 """Unit tests for SchemaPruner with visited-set cycle detection."""
 
 from pathlib import Path
+from typing import Any
+
+from hypothesis import given
+from hypothesis import strategies as st
 
 from specprobe.chunker.loader import load_openapi_spec
 from specprobe.chunker.pruner import SchemaPruner
@@ -117,3 +121,100 @@ def test_prune_depth_capping_custom_depth(deep_chain_spec_path: Path) -> None:
         "Schema 'Level2' at depth 2 exceeds schema depth limit of 1 and was truncated."
         in pruner_shallow.warnings[0]
     )
+
+
+@st.composite
+def schema_graph_strategy(draw: st.DrawFn) -> tuple[dict[str, Any], dict[str, Any], int]:
+    """Generate arbitrary component schemas (including self-referential and cyclic graphs),
+    an operation referencing a subset of those schemas, and a max_depth limit.
+    """
+    schema_names = draw(
+        st.lists(
+            st.text(alphabet="abcdefghijklmnopqrstuvwxyz", min_size=1, max_size=6),
+            min_size=1,
+            max_size=8,
+            unique=True,
+        )
+    )
+
+    schemas: dict[str, Any] = {}
+    for name in schema_names:
+        num_refs = draw(st.integers(min_value=0, max_value=3))
+        ref_targets = draw(
+            st.lists(st.sampled_from(schema_names), min_size=num_refs, max_size=num_refs)
+        )
+        props: dict[str, Any] = {}
+        for idx, target in enumerate(ref_targets):
+            props[f"field_{idx}"] = {"$ref": f"#/components/schemas/{target}"}
+        schemas[name] = {"type": "object", "properties": props}
+
+    op_num_refs = draw(st.integers(min_value=0, max_value=3))
+    op_targets = draw(
+        st.lists(st.sampled_from(schema_names), min_size=op_num_refs, max_size=op_num_refs)
+    )
+    op_responses: dict[str, Any] = {}
+    for idx, target in enumerate(op_targets):
+        op_responses[f"20{idx}"] = {
+            "content": {"application/json": {"schema": {"$ref": f"#/components/schemas/{target}"}}}
+        }
+    operation = {"responses": op_responses}
+
+    max_depth = draw(st.integers(min_value=0, max_value=5))
+    return schemas, operation, max_depth
+
+
+@given(schema_graph_strategy())
+def test_hypothesis_pruner_termination_depth_and_idempotency(
+    graph_input: tuple[dict[str, Any], dict[str, Any], int],
+) -> None:
+    """Property test verifying that SchemaPruner:
+    1. Always terminates on arbitrary (including cyclic) graphs.
+    2. Never includes schemas deeper than max_depth.
+    3. Is strictly idempotent across repeated pruning runs.
+    """
+    schemas, operation, max_depth = graph_input
+    pruner1 = SchemaPruner(components_schemas=schemas, max_depth=max_depth, emit_stderr=False)
+    pruned1 = pruner1.prune_for_operation(operation)
+
+    # 1. Termination & Validity
+    assert isinstance(pruned1, dict)
+    for k in pruned1:
+        assert k in schemas
+
+    # 2. Depth constraint check via BFS
+    initial_refs: set[str] = set()
+    pruner1._extract_refs_from_node(operation, initial_refs)
+    initial_names = {
+        ref[len(SchemaPruner.SCHEMA_PREFIX) :].split("/")[0]
+        for ref in initial_refs
+        if ref.startswith(SchemaPruner.SCHEMA_PREFIX)
+    }
+
+    depths: dict[str, int] = {}
+    q: list[tuple[str, int]] = [(name, 1) for name in initial_names if name in schemas]
+    while q:
+        curr, d = q.pop(0)
+        if curr in depths and depths[curr] <= d:
+            continue
+        depths[curr] = d
+        child_refs: set[str] = set()
+        pruner1._extract_refs_from_node(schemas[curr], child_refs)
+        for cr in child_refs:
+            if cr.startswith(SchemaPruner.SCHEMA_PREFIX):
+                cname = cr[len(SchemaPruner.SCHEMA_PREFIX) :].split("/")[0]
+                if cname in schemas and (cname not in depths or depths[cname] > d + 1):
+                    q.append((cname, d + 1))
+
+    for name in pruned1:
+        assert depths[name] <= max_depth, (
+            f"Schema '{name}' has depth {depths[name]} which exceeds max_depth {max_depth}"
+        )
+
+    # 3. Idempotency
+    pruner2 = SchemaPruner(components_schemas=schemas, max_depth=max_depth, emit_stderr=False)
+    pruned2 = pruner2.prune_for_operation(operation)
+    assert pruned1 == pruned2
+
+    pruner3 = SchemaPruner(components_schemas=pruned1, max_depth=max_depth, emit_stderr=False)
+    pruned3 = pruner3.prune_for_operation(operation)
+    assert pruned1 == pruned3
