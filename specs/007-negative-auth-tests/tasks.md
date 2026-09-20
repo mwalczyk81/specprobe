@@ -10,9 +10,9 @@
 
 **Purpose**: Verification of baseline test suite and setup of test directories and fixtures for Feature 007.
 
-- [ ] T001 Verify baseline test suite and quality gates by running `uv run pytest` across all existing 242 tests
-- [ ] T002 [P] Create unit test module `tests/unit/generator/test_negative_auth.py` for negative authentication generation
-- [ ] T003 [P] Create unit test module `tests/unit/exporter/test_negative_export.py` for negative test export serialization
+- [X] T001 Verify baseline test suite and quality gates by running `uv run pytest` across all existing 242 tests
+- [X] T002 [P] Create unit test module `tests/unit/generator/test_negative_auth.py` for negative authentication generation
+- [X] T003 [P] Create unit test module `tests/unit/exporter/test_negative_export.py` and update `generated_test_case_strategy` in `tests/unit/test_exporter_http.py` and `tests/unit/test_exporter_postman.py` to draw `test_type` and negative status codes so Hypothesis determinism property tests exercise negative paths
 
 ---
 
@@ -22,9 +22,9 @@
 
 **CRITICAL**: Foundational tasks must be completed before user story tasks can proceed.
 
-- [ ] T004 Extend `GeneratedTestCase` in `src/specprobe/generator/models.py` with `test_type: str = Field(default="positive", description="Discriminator for positive vs negative test scenarios.")` and validate allowed values `{"positive", "negative_auth_missing", "negative_auth_invalid"}`
-- [ ] T005 [P] Implement core security inspection and credential invalidation helper functions (`is_secured_operation`, `get_all_security_target_names`, `get_invalid_credential_literal`) in `src/specprobe/generator/negative_auth.py`
-- [ ] T006 [P] Add foundational unit tests for `GeneratedTestCase` discriminator and credential invalidation helpers in `tests/unit/generator/test_negative_auth.py`
+- [X] T004 Extend `GeneratedTestCase` in `src/specprobe/generator/models.py` with `test_type: str = Field(default="positive", description="Discriminator for positive vs negative test scenarios.")` and validate allowed values `{"positive", "negative_auth_missing", "negative_auth_invalid"}`
+- [X] T005 [P] Implement core security inspection and credential invalidation helper functions (`is_secured_operation`, `get_all_security_target_names`, `get_invalid_credential_literal`) in `src/specprobe/generator/negative_auth.py`
+- [X] T006 [P] Add foundational unit tests for `GeneratedTestCase` discriminator and credential invalidation helpers in `tests/unit/generator/test_negative_auth.py`
 
 **Checkpoint**: Foundational models and helpers ready. User story implementation can now begin.
 
@@ -38,15 +38,15 @@
 
 ### Tests for User Story 1
 
-- [ ] T007 [P] [US1] Add unit tests in `tests/unit/generator/test_negative_auth.py` asserting `generate_401_test_case()` strips all auth headers and query parameters, sets `response.status_code = 401`, and assigns `test_type = "negative_auth_missing"`
-- [ ] T008 [P] [US1] Add unit tests in `tests/unit/exporter/test_negative_export.py` verifying Postman serialization of 401 test cases as sibling items inside the operation's tag folder with `[401]` name prefix and `pm.response.to.have.status(401)` assertion
-- [ ] T009 [P] [US1] Add unit tests in `tests/unit/exporter/test_negative_export.py` verifying REST Client (`.http`) serialization of 401 test cases with `# @name <op_id>_401`, `# Expected Status: 401`, and omitted auth headers
+- [X] T007 [P] [US1] Add unit tests in `tests/unit/generator/test_negative_auth.py` asserting `generate_401_test_case()` strips all auth headers and query parameters, sets `response.status_code = 401`, and assigns `test_type = "negative_auth_missing"`
+- [X] T008 [P] [US1] Add unit tests in `tests/unit/exporter/test_negative_export.py` verifying Postman serialization of 401 test cases as sibling items inside the operation's tag folder with `[401]` name prefix and `pm.response.to.have.status(401)` assertion
+- [X] T009 [P] [US1] Add unit tests in `tests/unit/exporter/test_negative_export.py` verifying REST Client (`.http`) serialization of 401 test cases with `# @name <op_id>_401`, `# Expected Status: 401`, and omitted auth headers
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] Implement `generate_401_test_case(happy_tc: GeneratedTestCase, chunk: OperationChunk) -> GeneratedTestCase` in `src/specprobe/generator/negative_auth.py` to clone the happy-path request, strip all security headers and query params, set `status_code = 401`, and preserve operation traceability
-- [ ] T011 [US1] Update `_build_postman_item` and folder item grouping in `src/specprobe/exporter/postman.py` to serialize 401 test cases with `[401]` name prefix, omitted auth credentials, and `pm.response.to.have.status(401)` test script
-- [ ] T012 [US1] Update `_build_request_block` in `src/specprobe/exporter/http_client.py` to serialize 401 test cases with `# @name <op_id>_401`, `# Expected Status: 401`, and omitted credentials
+- [X] T010 [US1] Implement `generate_401_test_case(happy_tc: GeneratedTestCase, chunk: OperationChunk) -> GeneratedTestCase` in `src/specprobe/generator/negative_auth.py` to clone the happy-path request, strip all security headers and query params, set `status_code = 401`, and preserve operation traceability
+- [X] T011 [US1] Update `_build_postman_item` and folder item grouping in `src/specprobe/exporter/postman.py` to serialize 401 test cases with `[401]` name prefix, omitted auth credentials, and `pm.response.to.have.status(401)` test script
+- [X] T012 [US1] Update `_build_request_block` in `src/specprobe/exporter/http_client.py` to serialize 401 test cases with `# @name <op_id>_401`, `# Expected Status: 401`, and omitted credentials
 
 **Checkpoint**: User Story 1 complete and testable independently. Missing credentials test generation and export fully functional.
 
@@ -60,15 +60,15 @@
 
 ### Tests for User Story 2
 
-- [ ] T013 [P] [US2] Add unit tests in `tests/unit/generator/test_negative_auth.py` asserting `generate_403_test_case()` corrupts credentials for the primary resolved scheme across Bearer, Basic, API Key header, and API Key query, sets `response.status_code = 403`, and sets `test_type = "negative_auth_invalid"`
-- [ ] T014 [P] [US2] Add unit tests in `tests/unit/exporter/test_negative_export.py` verifying Postman serialization of 403 test cases with `[403]` name prefix, inline invalid literals directly on the request, `pm.response.to.have.status(403)` assertion, and exclusion from collection variable generation
-- [ ] T015 [P] [US2] Add unit tests in `tests/unit/exporter/test_negative_export.py` verifying REST Client serialization of 403 test cases with `# @name <op_id>_403`, `# Expected Status: 403`, inline invalid literals directly on request line/headers, and exclusion from top-level `@variable` definitions
+- [X] T013 [P] [US2] Add unit tests in `tests/unit/generator/test_negative_auth.py` asserting `generate_403_test_case()` corrupts credentials for the primary resolved scheme across Bearer, Basic, API Key header, and API Key query, sets `response.status_code = 403`, and sets `test_type = "negative_auth_invalid"`
+- [X] T014 [P] [US2] Add unit tests in `tests/unit/exporter/test_negative_export.py` verifying Postman serialization of 403 test cases with `[403]` name prefix, inline invalid literals directly on the request, `pm.response.to.have.status(403)` assertion, and exclusion from collection variable generation
+- [X] T015 [P] [US2] Add unit tests in `tests/unit/exporter/test_negative_export.py` verifying REST Client serialization of 403 test cases with `# @name <op_id>_403`, `# Expected Status: 403`, inline invalid literals directly on request line/headers, and exclusion from top-level `@variable` definitions
 
 ### Implementation for User Story 2
 
-- [ ] T016 [US2] Implement `generate_403_test_case(happy_tc: GeneratedTestCase, chunk: OperationChunk) -> GeneratedTestCase` in `src/specprobe/generator/negative_auth.py` targeting the primary winning scheme with protocol-valid corrupted values
-- [ ] T017 [US2] Update `_build_postman_item` and variable aggregation in `src/specprobe/exporter/postman.py` to format 403 requests with inline invalid literals and restrict collection variable collection to positive test cases only
-- [ ] T018 [US2] Update `_build_request_block` and variable aggregation in `src/specprobe/exporter/http_client.py` to format 403 requests with inline invalid literals and restrict file variable collection to positive test cases only
+- [X] T016 [US2] Implement `generate_403_test_case(happy_tc: GeneratedTestCase, chunk: OperationChunk) -> GeneratedTestCase` in `src/specprobe/generator/negative_auth.py` targeting the primary winning scheme with protocol-valid corrupted values
+- [X] T017 [US2] Update `_build_postman_item` and variable aggregation in `src/specprobe/exporter/postman.py` to format 403 requests with inline invalid literals and restrict collection variable collection to positive test cases only
+- [X] T018 [US2] Update `_build_request_block` and variable aggregation in `src/specprobe/exporter/http_client.py` to format 403 requests with inline invalid literals and restrict file variable collection to positive test cases only
 
 **Checkpoint**: User Stories 1 AND 2 complete. Missing (401) and invalid (403) negative tests generate and export cleanly.
 
@@ -82,14 +82,14 @@
 
 ### Tests for User Story 3
 
-- [ ] T019 [P] [US3] Add unit tests in `tests/unit/generator/test_negative_auth.py` asserting `generate_negative_auth_test_cases()` returns an empty list for unsecured operations (`security: []` or None) and operations with optional security (`{}`)
-- [ ] T020 [P] [US3] Add integration tests in `tests/integration/test_generate_cli.py` verifying `specprobe generate` produces 401 and 403 test cases by default, and suppresses them when `--no-negative-auth` is passed
+- [X] T019 [P] [US3] Add unit tests in `tests/unit/generator/test_negative_auth.py` asserting `generate_negative_auth_test_cases()` returns an empty list for unsecured operations (`security: []` or None) and operations with optional security (`{}`)
+- [X] T020 [P] [US3] Add integration tests in `tests/integration/test_generate_cli.py` verifying `specprobe generate` produces 401 and 403 test cases by default, and suppresses them when `--no-negative-auth` is passed
 
 ### Implementation for User Story 3
 
-- [ ] T021 [US3] Implement composite orchestrator `generate_negative_auth_test_cases(happy_tc: GeneratedTestCase, chunk: OperationChunk) -> list[GeneratedTestCase]` in `src/specprobe/generator/negative_auth.py` that verifies operation security before dispatching 401 and 403 generators
-- [ ] T022 [US3] Update `GenerationEngine.generate_batch` in `src/specprobe/generator/engine.py` to accept `negative_auth: bool = True`, synthesizing and streaming 401 and 403 test cases immediately following each successful happy-path generation
-- [ ] T023 [US3] Update `generate_command` in `src/specprobe/cli.py` to add `@click.option("--negative-auth/--no-negative-auth", default=True, help="...")` and pass `negative_auth` to `GenerationEngine.generate_batch()`
+- [X] T021 [US3] Implement composite orchestrator `generate_negative_auth_test_cases(happy_tc: GeneratedTestCase, chunk: OperationChunk) -> list[GeneratedTestCase]` in `src/specprobe/generator/negative_auth.py` that verifies operation security before dispatching 401 and 403 generators
+- [X] T022 [US3] Update `GenerationEngine.generate_batch` in `src/specprobe/generator/engine.py` to accept `negative_auth: bool = True`, synthesizing and streaming 401 and 403 test cases immediately following each successful happy-path generation
+- [X] T023 [US3] Update `generate_command` in `src/specprobe/cli.py` to add `@click.option("--negative-auth/--no-negative-auth", default=True, help="...")` and pass `negative_auth` to `GenerationEngine.generate_batch()`
 
 **Checkpoint**: All three user stories complete and integrated end-to-end through the CLI.
 
@@ -99,12 +99,12 @@
 
 **Purpose**: Regression testing, golden file updates, static type validation, and verification of quickstart scenarios.
 
-- [ ] T024 [P] Update or add golden file export regression fixtures in `tests/fixtures/golden/` verifying byte-for-byte reproducibility of exported Postman collections and REST Client files containing negative auth tests
-- [ ] T025 [P] Add exporter regression tests in `tests/test_golden_exports.py` (or dedicated test suite) comparing exporter output against the negative auth golden fixtures
-- [ ] T026 Execute static type checking via `uv run ty check src/` and resolve any type diagnostics
-- [ ] T027 Execute linter and code formatting via `uv run ruff check .` and `uv run ruff format --check .`
-- [ ] T028 Execute full automated test suite via `uv run pytest` and verify 100% test pass rate with coverage
-- [ ] T029 Execute runnable validation scenarios from `specs/007-negative-auth-tests/quickstart.md` to confirm end-to-end workflow
+- [X] T024 [P] Deliberately reconcile and regenerate existing security golden fixtures (`tests/fixtures/golden/security/security_cases.jsonl`, `security.postman.json`, `security.requests.http`) and pipeline tests (`tests/integration/test_security_pipeline.py`, `tests/unit/test_security_golden.py`) to incorporate the new default-on negative test cases (happy path + 401 + 403) rather than bypassing diffs with `--no-negative-auth`
+- [X] T025 [P] Verify byte-for-byte reproducibility of the regenerated golden fixtures and all existing non-secured golden fixtures (`petstore.postman.json`, `petstore.requests.http`) in `tests/integration/test_export_golden.py` and `tests/unit/test_security_golden.py`
+- [X] T026 Execute static type checking via `uv run ty check src/` and resolve any type diagnostics
+- [X] T027 Execute linter and code formatting via `uv run ruff check .` and `uv run ruff format --check .`
+- [X] T028 Execute full automated test suite via `uv run pytest` and verify 100% test pass rate with coverage
+- [X] T029 Execute runnable validation scenarios from `specs/007-negative-auth-tests/quickstart.md` to confirm end-to-end workflow
 
 ---
 

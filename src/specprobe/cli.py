@@ -427,6 +427,15 @@ def search_command(
     show_default=True,
     help="Bypass existing disk cache entries and refresh cache records.",
 )
+@click.option(
+    "--negative-auth/--no-negative-auth",
+    default=True,
+    show_default=True,
+    help=(
+        "Generate 401 (missing credentials) and 403 (invalid credentials) "
+        "negative test cases for secured operations."
+    ),
+)
 def generate_command(
     results_file: str | None,
     model: str,
@@ -434,6 +443,7 @@ def generate_command(
     temperature: float,
     cache_dir: str,
     no_cache: bool,
+    negative_auth: bool,
 ) -> None:
     """Generate schema-validated test cases from OpenAPI operation search results.
 
@@ -501,7 +511,11 @@ def generate_command(
 
     cache = DiskCache(cache_dir=cache_dir, no_cache=no_cache)
     engine = GenerationEngine(gateway=gateway, cache=cache)
-    batch_result = engine.generate_batch(chunks, stream_stdout=True)
+    batch_result = engine.generate_batch(
+        chunks,
+        stream_stdout=True,
+        negative_auth=negative_auth,
+    )
 
     if batch_result.total > 0 and batch_result.succeeded == 0:
         click.echo(

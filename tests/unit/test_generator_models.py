@@ -76,3 +76,44 @@ def test_invalid_status_code_fails_validation() -> None:
         ResponseAssertion(status_code=600)
     errors = exc_info.value.errors()
     assert any(err["loc"] == ("status_code",) for err in errors)
+
+
+def test_test_type_defaults_to_positive() -> None:
+    """GeneratedTestCase must default test_type to 'positive'."""
+    test_case = GeneratedTestCase(
+        operation_id="testOp",
+        description="Default test type",
+        request=RequestFixture(),
+        response=ResponseAssertion(status_code=200),
+    )
+    assert test_case.test_type == "positive"
+
+
+@pytest.mark.parametrize(
+    "valid_type",
+    ["positive", "negative_auth_missing", "negative_auth_invalid"],
+)
+def test_valid_test_types_accepted(valid_type: str) -> None:
+    """All defined test_type values must be accepted."""
+    test_case = GeneratedTestCase(
+        test_type=valid_type,
+        operation_id="testOp",
+        description=f"Test type {valid_type}",
+        request=RequestFixture(),
+        response=ResponseAssertion(status_code=200),
+    )
+    assert test_case.test_type == valid_type
+
+
+def test_invalid_test_type_rejected() -> None:
+    """Unknown test_type values must raise ValidationError."""
+    with pytest.raises(ValidationError) as exc_info:
+        GeneratedTestCase(
+            test_type="unknown_variant",
+            operation_id="testOp",
+            description="Invalid test type",
+            request=RequestFixture(),
+            response=ResponseAssertion(status_code=200),
+        )
+    errors = exc_info.value.errors()
+    assert any(err["loc"] == ("test_type",) for err in errors)

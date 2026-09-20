@@ -177,6 +177,10 @@ class GeneratedTestCase(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
+    test_type: str = Field(
+        default="positive",
+        description="Discriminator for positive vs negative test scenarios.",
+    )
     operation_id: str = Field(
         min_length=1,
         description="Traceable identifier of the target API operation.",
@@ -205,3 +209,12 @@ class GeneratedTestCase(BaseModel):
             "Resolved security scheme definitions inherited from operation chunk components."
         ),
     )
+
+    @field_validator("test_type")
+    @classmethod
+    def validate_test_type(cls, v: str) -> str:
+        """Validate that test_type is one of the supported discriminators."""
+        allowed = {"positive", "negative_auth_missing", "negative_auth_invalid"}
+        if v not in allowed:
+            raise ValueError(f"Invalid test_type '{v}'. Must be one of {sorted(allowed)}.")
+        return v

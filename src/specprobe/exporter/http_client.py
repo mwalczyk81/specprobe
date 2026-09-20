@@ -29,10 +29,19 @@ def _build_request_block(test_case: GeneratedTestCase) -> str:
         Formatted request block including ### delimiter, metadata comments,
         request line, headers, and optional body.
     """
+    is_negative_401 = getattr(test_case, "test_type", "positive") == "negative_auth_missing"
+    is_negative_403 = getattr(test_case, "test_type", "positive") == "negative_auth_invalid"
+    is_negative = is_negative_401 or is_negative_403
+
     lines: list[str] = ["###"]
 
     # Metadata comments
-    lines.append(f"# @name {test_case.operation_id}")
+    if is_negative_401:
+        lines.append(f"# @name {test_case.operation_id}_401")
+    elif is_negative_403:
+        lines.append(f"# @name {test_case.operation_id}_403")
+    else:
+        lines.append(f"# @name {test_case.operation_id}")
     lines.append(f"# Operation: {test_case.operation_id}")
 
     if test_case.description and test_case.description.strip():
@@ -49,14 +58,16 @@ def _build_request_block(test_case: GeneratedTestCase) -> str:
     if schema_sig:
         lines.append(schema_sig)
 
-    # Resolve security credentials
-    resolved_creds = SecurityResolver.resolve_credentials(
-        test_case.security,
-        test_case.security_schemes,
-    )
-    for cred in resolved_creds:
-        sec_comments = format_security_comment(cred)
-        lines.extend(sec_comments)
+    # Resolve security credentials (only parameterize for positive test cases)
+    resolved_creds = []
+    if not is_negative:
+        resolved_creds = SecurityResolver.resolve_credentials(
+            test_case.security,
+            test_case.security_schemes,
+        )
+        for cred in resolved_creds:
+            sec_comments = format_security_comment(cred)
+            lines.extend(sec_comments)
 
     # Resolve HTTP method and path template
     method, path_template = resolve_operation_method_and_path(test_case)
@@ -138,6 +149,8 @@ def generate_http_document(
     sec_vars: list[str] = []
 
     for tc in test_cases:
+        if getattr(tc, "test_type", "positive") != "positive":
+            continue
         tc_creds = SecurityResolver.resolve_credentials(tc.security, tc.security_schemes)
         for cred in tc_creds:
             if cred.variable_name not in seen_vars:

@@ -70,17 +70,26 @@ def _build_postman_item(test_case: GeneratedTestCase) -> dict[str, Any]:
     if not substituted_path.startswith("/"):
         substituted_path = f"/{substituted_path}"
 
+    is_negative_401 = (
+        test_case.test_type == "negative_auth_missing" or test_case.response.status_code == 401
+    )
+    is_negative_403 = (
+        test_case.test_type == "negative_auth_invalid" or test_case.response.status_code == 403
+    )
+    is_negative = is_negative_401 or is_negative_403
+
     # Resolve security credentials
     resolved_creds = SecurityResolver.resolve_credentials(
         test_case.security,
         test_case.security_schemes,
     )
 
-    # Build query dictionary with security parameterization
+    # Build query dictionary (parameterize credentials for positive cases only)
     query_dict = dict(test_case.request.query_params) if test_case.request.query_params else {}
-    for cred in resolved_creds:
-        if cred.transport == "query":
-            query_dict[cred.target_name] = cred.wire_value_template
+    if not is_negative:
+        for cred in resolved_creds:
+            if cred.transport == "query":
+                query_dict[cred.target_name] = cred.wire_value_template
 
     query_list = []
     if query_dict:
@@ -103,18 +112,20 @@ def _build_postman_item(test_case: GeneratedTestCase) -> dict[str, Any]:
     if query_list:
         url_obj["query"] = query_list
 
-    # Headers with security parameterization
+    # Headers (parameterize credentials for positive cases only;
+    # negative cases preserve raw headers)
     headers_dict = dict(test_case.request.headers) if test_case.request.headers else {}
-    for cred in resolved_creds:
-        if cred.transport == "header":
-            existing_key = next(
-                (k for k in headers_dict if k.lower() == cred.target_name.lower()),
-                None,
-            )
-            if existing_key:
-                headers_dict[existing_key] = cred.wire_value_template
-            else:
-                headers_dict[cred.target_name] = cred.wire_value_template
+    if not is_negative:
+        for cred in resolved_creds:
+            if cred.transport == "header":
+                existing_key = next(
+                    (k for k in headers_dict if k.lower() == cred.target_name.lower()),
+                    None,
+                )
+                if existing_key:
+                    headers_dict[existing_key] = cred.wire_value_template
+                else:
+                    headers_dict[cred.target_name] = cred.wire_value_template
 
     header_list = []
     if headers_dict:
@@ -131,10 +142,11 @@ def _build_postman_item(test_case: GeneratedTestCase) -> dict[str, Any]:
     desc_lines = [f"Operation: {test_case.operation_id}"]
     if test_case.description:
         desc_lines.append(test_case.description)
-    for cred in resolved_creds:
-        sec_desc = format_postman_security_desc(cred)
-        if sec_desc:
-            desc_lines.append(sec_desc)
+    if not is_negative:
+        for cred in resolved_creds:
+            sec_desc = format_postman_security_desc(cred)
+            if sec_desc:
+                desc_lines.append(sec_desc)
     request_desc = "\n\n".join(desc_lines)
 
     request_obj: dict[str, Any] = {
@@ -174,6 +186,11 @@ def _build_postman_item(test_case: GeneratedTestCase) -> dict[str, Any]:
     ]
 
     item_name = test_case.description.strip() if test_case.description else test_case.operation_id
+    if is_negative_401 and not item_name.startswith("[401]"):
+        item_name = f"[401] {item_name}"
+    elif is_negative_403 and not item_name.startswith("[403]"):
+        item_name = f"[403] {item_name}"
+
     return {
         "name": item_name,
         "request": request_obj,
@@ -237,6 +254,8 @@ def generate_postman_collection(
     sec_variables: list[dict[str, Any]] = []
 
     for tc in test_cases:
+        if getattr(tc, "test_type", "positive") != "positive":
+            continue
         tc_creds = SecurityResolver.resolve_credentials(tc.security, tc.security_schemes)
         for cred in tc_creds:
             if cred.variable_name not in seen_vars:

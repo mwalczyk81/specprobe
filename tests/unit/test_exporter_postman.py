@@ -399,7 +399,15 @@ def generated_test_case_strategy(draw: st.DrawFn) -> GeneratedTestCase:
             ),
         )
     )
-    status_code = draw(st.integers(min_value=200, max_value=299))
+    test_type = draw(
+        st.sampled_from(["positive", "negative_auth_missing", "negative_auth_invalid"])
+    )
+    if test_type == "negative_auth_missing":
+        status_code = 401
+    elif test_type == "negative_auth_invalid":
+        status_code = 403
+    else:
+        status_code = draw(st.integers(min_value=200, max_value=299))
     resp_headers = draw(
         st.dictionaries(
             keys=st.sampled_from(["Content-Type", "ETag", "Location"]),
@@ -426,6 +434,7 @@ def generated_test_case_strategy(draw: st.DrawFn) -> GeneratedTestCase:
     )
 
     return GeneratedTestCase(
+        test_type=test_type,
         operation_id=op_id,
         description=description,
         request=RequestFixture(
