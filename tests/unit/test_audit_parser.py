@@ -131,6 +131,10 @@ GET {{baseUrl}}/pets?limit=10 HTTP/1.1
 
 def test_parse_artifact_auto_detection() -> None:
     """Verify parse_artifact automatically determines format by extension and content."""
+    # Direct Path instances
+    items_path = parse_artifact(POSTMAN_FIXTURE)
+    assert len(items_path) == 3
+
     items_postman = parse_artifact(str(POSTMAN_FIXTURE))
     assert len(items_postman) == 3
 
@@ -139,3 +143,49 @@ def test_parse_artifact_auto_detection() -> None:
 
     # Empty string should return empty list
     assert parse_artifact("") == []
+
+
+def test_parse_artifact_large_in_memory_string() -> None:
+    """Verify large in-memory payloads (> 4096 bytes) parse cleanly without filesystem stat errors.
+
+    On POSIX kernels, calling stat() on strings > PATH_MAX (4096 bytes) raises
+    OSError(ENAMETOOLONG). parse_artifact must recognize in-memory JSON/HTTP content
+    and skip filesystem path probing.
+    """
+    # Large valid Postman JSON string exceeding 4096 bytes
+    large_postman = {
+        "info": {"name": "Large Postman Collection"},
+        "item": [
+            {
+                "name": f"Operation_{i}",
+                "request": {
+                    "method": "GET",
+                    "url": f"http://localhost:8000/resource/{i}",
+                    "description": "x" * 200,
+                },
+                "event": [
+                    {
+                        "listen": "test",
+                        "script": {
+                            "type": "text/javascript",
+                            "exec": [
+                                'pm.test("Status code is 200", function () {',
+                                "    pm.response.to.have.status(200);",
+                                "});",
+                            ],
+                        },
+                    }
+                ],
+            }
+            for i in range(25)
+        ],
+    }
+    import json
+
+    serialized = json.dumps(large_postman, indent=2)
+    assert len(serialized) > 5000
+
+    items = parse_artifact(serialized)
+    assert len(items) == 25
+    assert items[0].name == "Operation_0"
+    assert items[0].expected_status == 200

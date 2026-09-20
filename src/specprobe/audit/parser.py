@@ -248,16 +248,36 @@ def parse_http_document(content: str) -> list[ArtifactTestItem]:
 
 def parse_artifact(source: str | Path) -> list[ArtifactTestItem]:
     """Parse a test artifact by path or raw content string, auto-detecting format."""
+    if isinstance(source, Path):
+        if not source.is_file():
+            return []
+        content = source.read_text(encoding="utf-8")
+        if source.suffix.lower() == ".json":
+            return parse_postman_collection(content)
+        return parse_http_document(content)
+
     source_str = str(source).strip()
     if not source_str:
         return []
 
-    path_candidate = Path(source_str)
-    if path_candidate.is_file():
-        content = path_candidate.read_text(encoding="utf-8")
-        if path_candidate.suffix.lower() == ".json":
-            return parse_postman_collection(content)
-        return parse_http_document(content)
+    # If source is a string, only attempt filesystem resolution if it is a plausible
+    # path (single line, not JSON object syntax, within POSIX PATH_MAX limits) to
+    # prevent OSError(ENAMETOOLONG) when multi-kilobyte in-memory artifacts are passed.
+    if (
+        "\n" not in source_str
+        and "\r" not in source_str
+        and not source_str.startswith("{")
+        and len(source_str) < 4096
+    ):
+        try:
+            path_candidate = Path(source_str)
+            if path_candidate.is_file():
+                content = path_candidate.read_text(encoding="utf-8")
+                if path_candidate.suffix.lower() == ".json":
+                    return parse_postman_collection(content)
+                return parse_http_document(content)
+        except OSError:
+            pass
 
     # In-memory raw content
     if source_str.startswith("{"):

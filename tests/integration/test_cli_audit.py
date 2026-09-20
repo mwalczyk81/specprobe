@@ -276,7 +276,11 @@ def test_audit_full_pipeline_composition() -> None:
             input=exported_postman,
         )
 
-    assert audit_res.exit_code == 0
+    assert audit_res.exit_code == 0, (
+        f"Audit failed with exit code {audit_res.exit_code}:\n"
+        f"STDOUT:\n{audit_res.stdout}\n"
+        f"STDERR:\n{audit_res.stderr}"
+    )
     lines = [line.strip() for line in audit_res.stdout.strip().split("\n") if line.strip()]
     assert len(lines) >= 1
     assert "SpecProbe Audit Summary" in audit_res.stderr
