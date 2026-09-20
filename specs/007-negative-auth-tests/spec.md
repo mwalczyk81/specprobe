@@ -8,6 +8,16 @@
 
 **Input**: User description: "specprobe generate currently only produces happy-path (2xx) test cases. Extend it to also generate negative test cases asserting 401 (missing/absent credentials) and 403 (invalid/insufficient-scope credentials) responses for operations that declare a security requirement, reusing the SecurityResolver and scheme metadata already built in Feature 006 (security/security_schemes on GeneratedTestCase, the SecurityResolver in src/specprobe/exporter/security.py) rather than duplicating scheme-resolution logic. Exported artifacts (Postman, .http) need corresponding negative-case request items/blocks with appropriately broken or stripped credentials and an assertion for the expected 401/403 status. Stay zero-LLM/deterministic wherever the existing 006 logic already determines the scheme and placeholder shape — only the "how do I break this credential on purpose" generation step is new; it doesn't need an LLM call either, since the negative fixture is a deterministic transform of the placeholder (omit it, or emit a syntactically-invalid version) rather than something requiring judgment."
 
+## Clarifications
+
+### Session 2026-09-20
+
+- Q: Should negative authentication test case generation in `specprobe generate` be enabled by default or require an explicit opt-in flag? (FR-010) → A: Enabled by default; provide `--no-negative-auth` to disable.
+- Q: How should generated 401 and 403 negative test requests be organized within the exported Postman collection? (FR-007) → A: Sibling requests in the same tag folder with [401] and [403] name prefixes.
+- Q: For operations defining multiple alternative security schemes (OR logic), should 403 test generation target only the primary resolved scheme or generate a 403 case for each alternative? → A: Target only the primary resolved scheme (matching Feature 006 priority order).
+- Q: Should GeneratedTestCase include an explicit discriminator field (e.g., test_type) to distinguish positive vs. negative test cases, or rely on existing fields? → A: Add an explicit test_type: str = "positive" field to GeneratedTestCase.
+- Q: How should 403 invalid credentials be represented in exported Postman and REST Client artifacts? → A: Inline invalid literals (e.g., Bearer invalid_token, invalid_api_key) directly on the request.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Missing Credentials Negative Test Case Generation & Export (401 Unauthorized) (Priority: P1)
@@ -27,7 +37,7 @@ So that I can verify that unauthenticated requests to protected endpoints are re
    **Then** a negative test case record is generated with `response.status_code = 401`, description reflecting missing credentials, and request headers/query params stripped of credential placeholders.
 2. **Given** a generated 401 negative test case,
    **When** `specprobe export --format postman` runs,
-   **Then** a Postman request item is created named `[401] <Operation Title>` with no auth header/variable, asserting `pm.response.to.have.status(401)`.
+   **Then** a Postman request item is created as a sibling in the operation's tag folder named `[401] <Operation Title>` with no auth header/variable, asserting `pm.response.to.have.status(401)`.
 3. **Given** a generated 401 negative test case,
    **When** `specprobe export --format http` runs,
    **Then** a REST Client request block is emitted with `# Expected Status: 401`, omitting authorization headers and credential variables.
@@ -51,10 +61,10 @@ So that I can verify that callers with invalid tokens or insufficient permission
    **Then** a negative test case record is generated with `response.status_code = 403`, description indicating invalid credentials or insufficient scope, and request containing an invalid credential value.
 2. **Given** a generated 403 negative test case,
    **When** `specprobe export --format postman` runs,
-   **Then** a Postman request item is created named `[403] <Operation Title>` containing an invalid credential variable or raw invalid header, asserting `pm.response.to.have.status(403)`.
+   **Then** a Postman request item is created as a sibling in the operation's tag folder named `[403] <Operation Title>` containing an inline invalid credential literal directly in the request header or query parameter (e.g., `Bearer invalid_token`), asserting `pm.response.to.have.status(403)`.
 3. **Given** a generated 403 negative test case,
    **When** `specprobe export --format http` runs,
-   **Then** a REST Client request block is emitted with `# Expected Status: 403` and the corrupted credential header/query parameter.
+   **Then** a REST Client request block is emitted with `# Expected Status: 403` and the inline corrupted credential header or query parameter directly on the request.
 
 ---
 
@@ -77,15 +87,15 @@ So that public endpoints are not cluttered with redundant or invalid 401/403 tes
    **When** `specprobe generate` runs,
    **Then** negative auth cases are generated only if optional security is explicitly configured to be enforced, otherwise only happy-path is emitted.
 3. **Given** CLI flags controlling negative test generation,
-   **When** the user specifies `--negative-auth` (or `--no-negative-auth`),
-   **Then** negative authentication generation is enabled or disabled accordingly.
+   **When** `specprobe generate` runs without negative auth flags,
+   **Then** negative authentication generation is enabled by default; when `--no-negative-auth` is specified, negative auth test generation is disabled and only happy-path cases are emitted.
 
 ---
 
 ### Edge Cases
 
 - **Compound Security Requirements (AND logic)**: When an operation requires multiple schemes simultaneously (e.g., `apiKeyAuth` AND `oauth2`), a 401 missing-credentials test must omit all schemes, and 403 tests should verify partial/invalid combinations.
-- **Multiple Alternative Schemes (OR logic)**: When an operation accepts alternative schemes (e.g., Bearer OR apiKey), a 401 test must omit all alternatives, while a 403 test provides an invalid token for the primary scheme.
+- **Multiple Alternative Schemes (OR logic)**: When an operation accepts alternative schemes (e.g., Bearer OR apiKey), a 401 test omits all credentials across all alternatives, while the 403 test targets exclusively the primary resolved scheme (following Feature 006 priority: Bearer/OAuth2 > apiKey header > apiKey query > Basic) with corrupted credentials, maintaining a consistent 1:1:1 test case pattern per operation.
 - **Query-based vs Header-based API Keys**: For query-based API keys (`in: query`), the 401 case must strip the query parameter completely from `request.query_params`, while the 403 case replaces its value with `invalid_<name>`.
 - **Cookie-based Authentication**: When security is `in: cookie`, 401 strips the `Cookie` header while 403 provides an invalid cookie token.
 - **Operations with Existing 401/403 Documentation**: If the OpenAPI spec defines custom schemas for 401 or 403 responses, the negative test case incorporates the documented response schema if available, otherwise sets `schema_shape = null`.
@@ -96,19 +106,19 @@ So that public endpoints are not cluttered with redundant or invalid 401/403 tes
 
 - **FR-001**: The system MUST detect whether an operation declares security requirements by inspecting its chunk metadata and resolved schemes (reusing Feature 006 `SecurityResolver`).
 - **FR-002**: For any secured operation, the system MUST generate a 401 Unauthorized negative test case where all authentication credentials, headers, and query parameters are omitted.
-- **FR-003**: For any secured operation, the system MUST generate a 403 Forbidden negative test case where authentication credentials are replaced with deterministic invalid placeholders.
+- **FR-003**: For any secured operation, the system MUST generate a 403 Forbidden negative test case where authentication credentials for the primary resolved security scheme (reusing Feature 006 resolution priority) are replaced with deterministic invalid placeholders.
 - **FR-004**: The generation of 401 and 403 negative test cases MUST be 100% deterministic (zero-LLM), derived algorithmically from the synthesized happy-path test case and Feature 006 scheme metadata.
 - **FR-005**: Every generated negative test case MUST preserve the exact `operation_id` of the target operation to maintain strict operation traceability per Constitution Principle V.
-- **FR-006**: Generated negative test case records MUST distinguish their test intent (e.g., via `description`, tags such as `["negative", "auth", "401"]`, and `response.status_code`).
-- **FR-007**: `specprobe export` MUST recognize 401 and 403 test cases and serialize them into Postman collections with appropriate request naming (e.g. `[401] <Name>`) and `pm.response.to.have.status(401/403)` test assertions.
-- **FR-008**: `specprobe export` MUST recognize 401 and 403 test cases and serialize them into REST Client (`.http`) files with appropriate `# @name` suffixes and `# Expected Status: 401` / `# Expected Status: 403` headers.
+- **FR-006**: Generated test cases MUST include an explicit `test_type: str = "positive"` discriminator field (with values `"positive"`, `"negative_auth_missing"`, or `"negative_auth_invalid"`), accompanied by descriptive `tags` (including `"negative"`, `"auth"`) and expected `response.status_code`.
+- **FR-007**: `specprobe export` MUST recognize 401 and 403 test cases and serialize them into Postman collections as sibling requests within the operation's tag folder, with appropriate request naming (e.g. `[401] <Name>` and `[403] <Name>`), inline invalid literals for 403 requests (without modifying collection-level variables), and `pm.response.to.have.status(401/403)` test assertions.
+- **FR-008**: `specprobe export` MUST recognize 401 and 403 test cases and serialize them into REST Client (`.http`) files with appropriate `# @name` suffixes, `# Expected Status: 401` / `# Expected Status: 403` headers, and inline invalid literals for 403 requests.
 - **FR-009**: Operations with no security requirements or explicit empty security (`security: []`) MUST NOT produce negative authentication test cases.
-- **FR-010**: `specprobe generate` CLI MUST provide an option (`--negative-auth` / `--no-negative-auth`) to toggle negative authentication test case generation.
+- **FR-010**: `specprobe generate` CLI MUST enable negative authentication test case generation by default, and MUST provide a `--no-negative-auth` option to disable it.
 
 ### Key Entities *(include if feature involves data)*
 
 - **NegativeTestCaseDescriptor**: Represents the configuration for a negative auth variant (status code 401 or 403, mutation strategy: OMIT vs INVALIDATE, credential manipulation target).
-- **GeneratedTestCase (extended usage)**: Existing Pydantic model with `security` and `security_schemes` populated, `response.status_code` set to 401 or 403, and request headers/query params adjusted according to the negative mutation.
+- **GeneratedTestCase (extended)**: Existing Pydantic model extended with `test_type: str = "positive"` (values: `"positive"`, `"negative_auth_missing"`, `"negative_auth_invalid"`), `security` and `security_schemes` populated, `response.status_code` set to 401 or 403, and request fixtures adjusted according to the negative mutation strategy.
 
 ## Success Criteria *(mandatory)*
 
