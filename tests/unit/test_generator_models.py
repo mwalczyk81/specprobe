@@ -20,7 +20,13 @@ def test_valid_generated_test_case_instantiation() -> None:
         response=ResponseAssertion(
             status_code=200,
             headers={"Content-Type": "application/json"},
-            schema_shape={"type": "object", "properties": ["id", "name"]},
+            schema_shape={
+                "type": "object",
+                "properties": {
+                    "id": {"type": "integer"},
+                    "name": {"type": "string"},
+                },
+            },
         ),
         tags=["pets"],
     )

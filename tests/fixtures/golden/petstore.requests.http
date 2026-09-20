@@ -5,7 +5,7 @@
 # Operation: listPets
 # Description: List all pets with optional limit filter
 # Expected Status: 200
-# Expected Properties: id, name, tag
+# Expected Schema: array of object (properties: id, name, tag)
 GET {{baseUrl}}/pets?limit=10 HTTP/1.1
 Accept: application/json
 
@@ -14,7 +14,7 @@ Accept: application/json
 # Operation: createPets
 # Description: Create a new pet in store
 # Expected Status: 201
-# Expected Properties: id, name, tag
+# Expected Schema: object (properties: id, name, tag)
 POST {{baseUrl}}/pets HTTP/1.1
 Accept: application/json
 Content-Type: application/json
@@ -29,7 +29,7 @@ Content-Type: application/json
 # Operation: showPetById
 # Description: Retrieve specific pet by ID
 # Expected Status: 200
-# Expected Properties: id, name, tag
+# Expected Schema: object (properties: id, name, tag)
 GET {{baseUrl}}/pets/42 HTTP/1.1
 Accept: application/json
 

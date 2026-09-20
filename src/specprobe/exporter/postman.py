@@ -6,7 +6,6 @@ from typing import Any
 
 from specprobe.exporter.utils import (
     build_query_string,
-    extract_schema_properties,
     resolve_operation_method_and_path,
     substitute_path_params,
 )
@@ -35,23 +34,27 @@ def _build_test_script_lines(test_case: GeneratedTestCase) -> list[str]:
                 ]
             )
 
-    properties = extract_schema_properties(test_case.response.schema_shape)
+    if test_case.response.schema_shape is not None:
+        schema_raw = json.dumps(
+            test_case.response.schema_shape,
+            indent=4,
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+        schema_lines_split = schema_raw.splitlines()
+        schema_var_lines = ["    var schema = " + schema_lines_split[0]]
+        for s_line in schema_lines_split[1:]:
+            schema_var_lines.append("    " + s_line)
+        schema_var_lines[-1] += ";"
 
-    # TODO: schema_shape isn't validated as real JSON Schema at generation time
-    # (see generator/prompt.py + generator/models.py), so this only checks property
-    # presence via pm.expect(...).to.have.property(key). Revisit as
-    # pm.response.to.have.jsonSchema(schema_shape) once schema_shape generation
-    # is hardened to guarantee valid JSON Schema output.
-    if properties:
-        prop_lines = [
+        schema_lines = [
             "",
-            'pm.test("Response has expected properties", function () {',
-            "    var jsonData = pm.response.json();",
+            'pm.test("Response matches JSON Schema", function () {',
+            *schema_var_lines,
+            "    pm.response.to.have.jsonSchema(schema);",
+            "});",
         ]
-        for prop in properties:
-            prop_lines.append(f'    pm.expect(jsonData).to.have.property("{prop}");')
-        prop_lines.append("});")
-        lines.extend(prop_lines)
+        lines.extend(schema_lines)
 
     return lines
 

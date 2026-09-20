@@ -23,7 +23,7 @@ any markdown code fences, commentary, or preamble:
   "response": {
     "status_code": <expected_2xx_integer_code_such_as_200_or_201>,
     "headers": { "<expected_response_header>": "<value>" },
-    "schema_shape": <expected_json_structure_or_null>
+    "schema_shape": <valid_self_contained_json_schema_draft_7_or_null>
   },
   "tags": ["<tag>", ...]
 }
@@ -33,6 +33,9 @@ Guidelines:
 - Use concrete, realistic fixture data matching parameter types and schemas (avoid generic
   placeholders like "string" when realistic data like "rover" or "42" is appropriate).
 - Response status_code MUST be an integer matching one of the defined successful 2xx responses.
+- schema_shape MUST be either null (for empty/204 responses) or a strictly valid, self-contained
+  JSON Schema Draft 7 object (e.g. declaring "type": "object" with "properties" or "type": "array"
+  with "items"). Do NOT output bare or unresolved "$ref" pointers; all definitions must be inlined.
 """
 
 

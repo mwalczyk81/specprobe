@@ -1,0 +1,17 @@
+@baseUrl = http://localhost:8000
+
+###
+# @name listPets
+# Operation: listPets
+# Description: List all pets
+# Expected Status: 200
+GET {{baseUrl}}/pets HTTP/1.1
+Accept: application/json
+
+###
+# @name showPetById
+# Operation: showPetById
+# Description: Info for a specific pet
+# Expected Status: 200
+GET {{baseUrl}}/pets/42 HTTP/1.1
+Accept: application/json

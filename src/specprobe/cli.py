@@ -11,12 +11,18 @@ import click
 from rich.console import Console
 from rich.table import Table
 
+from specprobe.audit.engine import (
+    AuditEngine,
+    load_artifact_items,
+    load_spec_chunks,
+)
 from specprobe.chunker.extractor import OperationExtractor
 from specprobe.chunker.loader import SpecLoadError, load_openapi_spec
 from specprobe.chunker.models import ChunkingStats
 from specprobe.exporter.engine import export_batch, read_test_cases
 from specprobe.exporter.models import ExportConfig, ExportFormat
 from specprobe.formatters.jsonl import stream_chunks_as_jsonl
+from specprobe.generator.gateway import LLMGateway
 from specprobe.index.store import QdrantIndexStore, index_chunk_stream
 
 # Disable Hugging Face and tqdm progress bars so CLI stdout/stderr streams remain pure JSON
@@ -594,6 +600,126 @@ def export_command(
         export_batch(test_cases, config, out_stream=sys.stdout, err_stream=sys.stderr)
     except Exception as exc:
         click.echo(f"Error during export: {exc}", err=True)
+        sys.exit(1)
+
+    sys.exit(0)
+
+
+@cli.command("audit")
+@click.argument(
+    "artifact_file",
+    required=False,
+    default=None,
+    type=click.Path(allow_dash=True),
+)
+@click.option(
+    "--index-dir",
+    type=click.Path(file_okay=False),
+    default=None,
+    help="Directory of indexed Qdrant database (or SPECPROBE_INDEX_DIR).",
+)
+@click.option(
+    "--spec",
+    "spec_file",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help="Optional direct path to an OpenAPI 3.0/3.1 YAML or JSON specification file.",
+)
+@click.option(
+    "--summary",
+    is_flag=True,
+    default=False,
+    help="Render human-readable summary table of coverage metrics to stderr.",
+)
+@click.option(
+    "--no-cache",
+    is_flag=True,
+    default=False,
+    help="Bypass LLM disk cache when generating semantic assertion critiques.",
+)
+@click.option(
+    "--cache-dir",
+    type=click.Path(file_okay=False),
+    default=None,
+    help="Directory for caching LLM audit critique responses (or SPECPROBE_AUDIT_CACHE_DIR).",
+)
+def audit_command(
+    artifact_file: str | None,
+    index_dir: str | None,
+    spec_file: str | None,
+    summary: bool,
+    no_cache: bool,
+    cache_dir: str | None,
+) -> None:
+    """Compare an API specification against existing test artifacts (Postman Collections or
+    REST Client .http files) to perform gap analysis and evaluate assertion quality.
+    """
+    if artifact_file is None:
+        if sys.stdin.isatty():
+            click.echo(
+                "Error: No test artifact provided. Pass a file argument or pipe via stdin.",
+                err=True,
+            )
+            sys.exit(1)
+        artifact_file = "-"
+
+    resolved_index_dir = index_dir or os.environ.get("SPECPROBE_INDEX_DIR", ".specprobe/index")
+    resolved_cache_dir = cache_dir or os.environ.get(
+        "SPECPROBE_AUDIT_CACHE_DIR", ".specprobe/cache/audit"
+    )
+
+    try:
+        chunks, spec_source = load_spec_chunks(spec_path=spec_file, index_dir=resolved_index_dir)
+    except FileNotFoundError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+    except ValueError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+    except SpecLoadError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+    except Exception as exc:
+        click.echo(f"Error loading specification: {exc}", err=True)
+        sys.exit(1)
+
+    try:
+        items, artifact_source = load_artifact_items(artifact_path=artifact_file)
+    except FileNotFoundError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+    except ValueError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+    except Exception as exc:
+        click.echo(f"Error loading test artifact: {exc}", err=True)
+        sys.exit(1)
+
+    try:
+        gateway = LLMGateway()
+    except Exception as exc:
+        click.echo(f"Error initializing LLM gateway: {exc}", err=True)
+        sys.exit(1)
+
+    engine = AuditEngine(
+        gateway=gateway,
+        cache_dir=resolved_cache_dir,
+        no_cache=no_cache,
+    )
+
+    try:
+        engine.audit(
+            chunks=chunks,
+            test_items=items,
+            spec_source=spec_source,
+            artifact_source=artifact_source,
+            stream_stdout=True,
+            out_stream=sys.stdout,
+            err_stream=sys.stderr,
+            render_summary=summary,
+        )
+    except Exception as exc:
+        click.echo(f"Error: Audit execution failed: {exc}", err=True)
         sys.exit(1)
 
     sys.exit(0)
