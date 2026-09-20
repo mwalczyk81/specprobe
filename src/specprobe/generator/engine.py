@@ -1,5 +1,6 @@
 """Generation engine orchestrating prompt construction, LLM completion, and validation."""
 
+import copy
 import json
 import re
 import sys
@@ -9,6 +10,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from specprobe.chunker.models import OperationChunk
+from specprobe.exporter.security import SecurityResolver
 from specprobe.generator.gateway import LLMGateway
 from specprobe.generator.models import GeneratedTestCase
 from specprobe.generator.prompt import (
@@ -93,11 +95,33 @@ def parse_search_results(input_data: str | list[Any]) -> list[OperationChunk]:
         If the input is not valid JSON, not a JSON array, or lacks conforming
         'chunk' payloads.
     """
+    data: list[Any] = []
     if isinstance(input_data, str):
         try:
-            data = json.loads(input_data)
+            parsed = json.loads(input_data)
+            if isinstance(parsed, list):
+                data = parsed
+            elif isinstance(parsed, dict):
+                if "chunk" in parsed or "metadata" in parsed:
+                    data = [parsed]
+                else:
+                    raise ValueError(
+                        "Invalid input format: expected a JSON array of search results."
+                    )
+            else:
+                raise ValueError("Invalid input format: expected a JSON array of search results.")
         except json.JSONDecodeError as exc:
-            raise ValueError(f"Invalid JSON input: {exc}") from exc
+            # Check if input is newline-delimited JSON (JSONL)
+            stripped_lines = [
+                line.strip() for line in input_data.strip().splitlines() if line.strip()
+            ]
+            if stripped_lines:
+                try:
+                    data = [json.loads(line) for line in stripped_lines]
+                except json.JSONDecodeError:
+                    raise ValueError(f"Invalid JSON input: {exc}") from exc
+            else:
+                raise ValueError(f"Invalid JSON input: {exc}") from exc
     elif isinstance(input_data, list):
         data = input_data
     else:
@@ -115,17 +139,26 @@ def parse_search_results(input_data: str | list[Any]) -> list[OperationChunk]:
 
         op_id = item.get("operationId") or f"item #{idx}"
 
-        if "chunk" not in item or item["chunk"] is None:
+        if "chunk" in item:
+            if item["chunk"] is None:
+                raise ValueError(
+                    f"Search result for '{op_id}' is missing full 'chunk' payload. "
+                    "Ensure 'specprobe search' was run with the '--full' flag."
+                )
+            chunk_data = item["chunk"]
+            if not isinstance(chunk_data, dict):
+                obj_type = type(chunk_data).__name__
+                raise ValueError(
+                    f"Invalid 'chunk' payload for '{op_id}': expected object, got {obj_type}."
+                )
+        elif "metadata" in item or "operation" in item:
+            chunk_data = item
+            if isinstance(item.get("metadata"), dict):
+                op_id = item["metadata"].get("operationId") or op_id
+        else:
             raise ValueError(
                 f"Search result for '{op_id}' is missing full 'chunk' payload. "
                 "Ensure 'specprobe search' was run with the '--full' flag."
-            )
-
-        chunk_data = item["chunk"]
-        if not isinstance(chunk_data, dict):
-            obj_type = type(chunk_data).__name__
-            raise ValueError(
-                f"Invalid 'chunk' payload for '{op_id}': expected object, got {obj_type}."
             )
 
         try:
@@ -163,6 +196,17 @@ class GenerationEngine:
             if chunk_tags:
                 data["tags"] = chunk_tags
 
+        # Inherit security requirements and security scheme definitions
+        if "security" not in data or not data["security"]:
+            data["security"] = copy.deepcopy(chunk.metadata.security)
+        if "security_schemes" not in data or not data["security_schemes"]:
+            sec_schemes = (
+                chunk.components.get("securitySchemes", {})
+                if isinstance(chunk.components, dict)
+                else {}
+            )
+            data["security_schemes"] = copy.deepcopy(sec_schemes)
+
         # Inherit method and path into request fixture if absent
         req = data.setdefault("request", {})
         if isinstance(req, dict):
@@ -170,6 +214,28 @@ class GenerationEngine:
                 req["method"] = chunk.metadata.method.upper()
             if not req.get("path") and chunk.metadata.path:
                 req["path"] = chunk.metadata.path
+
+            # Ensure credential placeholders are present if security requirements exist
+            if chunk.metadata.security:
+                resolved_creds = SecurityResolver.resolve_credentials(
+                    chunk.metadata.security,
+                    data.get("security_schemes", {}),
+                )
+                for cred in resolved_creds:
+                    if cred.transport == "header":
+                        headers = req.setdefault("headers", {})
+                        if isinstance(headers, dict) and cred.target_name not in headers:
+                            if cred.target_name.lower() == "authorization":
+                                if "basic" in cred.wire_value_template.lower():
+                                    headers["Authorization"] = "Basic <credentials>"
+                                else:
+                                    headers["Authorization"] = "Bearer <token>"
+                            else:
+                                headers[cred.target_name] = cred.default_placeholder
+                    elif cred.transport == "query":
+                        query_params = req.setdefault("query_params", {})
+                        if isinstance(query_params, dict) and cred.target_name not in query_params:
+                            query_params[cred.target_name] = cred.default_placeholder
 
         return GeneratedTestCase.model_validate(data)
 

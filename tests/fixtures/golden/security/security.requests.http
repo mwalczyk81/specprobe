@@ -1,0 +1,115 @@
+@baseUrl = http://localhost:8000
+@apiKeyHeaderAuth = <api_key>
+@apiKeyQueryAuth = <api_key>
+@appIdAuth = <api_key>
+@basicAuth = <credentials>
+@bearerAuth = <token>
+@oauth2Auth = <token>
+
+###
+# @name getBearerResource
+# Operation: getBearerResource
+# Description: Verify Bearer token protected endpoint
+# Expected Status: 200
+# Expected Schema: object (properties: token_type)
+# Security: bearerAuth
+GET {{baseUrl}}/bearer-endpoint HTTP/1.1
+Accept: application/json
+Authorization: Bearer {{bearerAuth}}
+
+###
+# @name getBasicResource
+# Operation: getBasicResource
+# Description: Verify HTTP Basic protected endpoint
+# Expected Status: 200
+# Expected Schema: object (properties: authenticated)
+# Security: basicAuth
+GET {{baseUrl}}/basic-endpoint HTTP/1.1
+Accept: application/json
+Authorization: Basic {{basicAuth}}
+
+###
+# @name postApiKeyHeaderResource
+# Operation: postApiKeyHeaderResource
+# Description: Verify API key header protected endpoint
+# Expected Status: 201
+# Expected Schema: object (properties: status)
+# Security: apiKeyHeaderAuth
+POST {{baseUrl}}/api-key-header-endpoint HTTP/1.1
+Content-Type: application/json
+X-API-Key: {{apiKeyHeaderAuth}}
+
+{
+  "action": "test"
+}
+
+###
+# @name getApiKeyQueryResource
+# Operation: getApiKeyQueryResource
+# Description: Verify API key query parameter protected endpoint
+# Expected Status: 200
+# Expected Schema: object (properties: items)
+# Security: apiKeyQueryAuth
+GET {{baseUrl}}/api-key-query-endpoint?limit=10&api_key={{apiKeyQueryAuth}} HTTP/1.1
+Accept: application/json
+
+###
+# @name getOAuth2Resource
+# Operation: getOAuth2Resource
+# Description: Verify OAuth2 with scopes protected endpoint
+# Expected Status: 200
+# Expected Schema: object (properties: scopes_granted)
+# Security: oauth2Auth
+# Scopes: read:pets, write:pets
+GET {{baseUrl}}/oauth2-endpoint HTTP/1.1
+Accept: application/json
+Authorization: Bearer {{oauth2Auth}}
+
+###
+# @name getOptionalSecurityResource
+# Operation: getOptionalSecurityResource
+# Description: Verify optional security endpoint
+# Expected Status: 200
+# Expected Schema: object (properties: is_public)
+# Security: bearerAuth (optional)
+GET {{baseUrl}}/optional-security-endpoint HTTP/1.1
+Accept: application/json
+Authorization: Bearer {{bearerAuth}}
+
+###
+# @name getMultiAlternativeResource
+# Operation: getMultiAlternativeResource
+# Description: Verify multi-alternative security endpoint
+# Expected Status: 200
+# Expected Schema: object (properties: auth_method)
+# Security: bearerAuth
+# Alternatives: apiKeyHeaderAuth, basicAuth
+GET {{baseUrl}}/multi-alternative-endpoint HTTP/1.1
+Accept: application/json
+Authorization: Bearer {{bearerAuth}}
+
+###
+# @name postCompoundSecurityResource
+# Operation: postCompoundSecurityResource
+# Description: Verify compound security endpoint
+# Expected Status: 200
+# Expected Schema: object (properties: compound_verified)
+# Security: apiKeyHeaderAuth
+# Security: appIdAuth
+POST {{baseUrl}}/compound-security-endpoint HTTP/1.1
+Content-Type: application/json
+X-API-Key: {{apiKeyHeaderAuth}}
+X-App-Id: {{appIdAuth}}
+
+{
+  "ping": "pong"
+}
+
+###
+# @name getPublicResource
+# Operation: getPublicResource
+# Description: Verify public endpoint
+# Expected Status: 200
+# Expected Schema: object (properties: public_data)
+GET {{baseUrl}}/public-endpoint HTTP/1.1
+Accept: application/json

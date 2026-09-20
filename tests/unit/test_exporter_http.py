@@ -350,6 +350,31 @@ def generated_test_case_strategy(draw: Any) -> GeneratedTestCase:
         )
     )
     tags = draw(st.lists(st.text(min_size=1, max_size=15), max_size=3))
+    security = draw(
+        st.sampled_from(
+            [
+                [],
+                [{"bearerAuth": []}],
+                [{"apiKeyAuth": []}],
+                [{"bearerAuth": []}, {}],
+                [{"oauth2Auth": ["read:pets", "write:pets"]}],
+                [{"apiKeyAuth": [], "appIdAuth": []}],
+            ]
+        )
+    )
+    security_schemes = draw(
+        st.sampled_from(
+            [
+                {},
+                {
+                    "bearerAuth": {"type": "http", "scheme": "bearer"},
+                    "apiKeyAuth": {"type": "apiKey", "in": "header", "name": "X-API-Key"},
+                    "oauth2Auth": {"type": "oauth2"},
+                    "appIdAuth": {"type": "apiKey", "in": "header", "name": "X-App-Id"},
+                },
+            ]
+        )
+    )
 
     return GeneratedTestCase(
         operation_id=op_id,
@@ -368,6 +393,8 @@ def generated_test_case_strategy(draw: Any) -> GeneratedTestCase:
             schema_shape=schema_shape,
         ),
         tags=tags,
+        security=security,
+        security_schemes=security_schemes,
     )
 
 
