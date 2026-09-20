@@ -37,6 +37,9 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+filterwarnings = [
+    "ignore:.*Cannot enable progress bars.*:UserWarning",
+]
 
 [tool.ruff]
 target-version = "py311"

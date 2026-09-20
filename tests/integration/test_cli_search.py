@@ -1,6 +1,7 @@
 """Integration tests for the specprobe search CLI command."""
 
 import json
+import os
 
 from click.testing import CliRunner
 
@@ -145,3 +146,18 @@ def test_empty_results(tmp_path):
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert data == []
+
+
+def test_progress_bar_suppression_active():
+    """Verify HF Hub and tqdm progress bars are disabled to prevent stdout/stderr pollution."""
+    from huggingface_hub.utils import are_progress_bars_disabled, enable_progress_bars
+    from tqdm.std import tqdm
+
+    assert os.environ.get("HF_HUB_DISABLE_PROGRESS_BARS") == "1"
+    assert os.environ.get("TQDM_DISABLE") == "1"
+    assert are_progress_bars_disabled() is True
+    assert tqdm(range(1)).disable is True
+
+    # Progress bars must remain disabled even if downstream libraries invoke enable_progress_bars()
+    enable_progress_bars()
+    assert are_progress_bars_disabled() is True

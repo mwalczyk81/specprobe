@@ -4,6 +4,7 @@ import json
 import os
 import statistics
 import sys
+import warnings
 from pathlib import Path
 
 import click
@@ -17,6 +18,11 @@ from specprobe.exporter.engine import export_batch, read_test_cases
 from specprobe.exporter.models import ExportConfig, ExportFormat
 from specprobe.formatters.jsonl import stream_chunks_as_jsonl
 from specprobe.index.store import QdrantIndexStore, index_chunk_stream
+
+# Disable Hugging Face and tqdm progress bars so CLI stdout/stderr streams remain pure JSON
+os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+os.environ.setdefault("TQDM_DISABLE", "1")
+warnings.filterwarnings("ignore", message=".*Cannot enable progress bars.*")
 
 
 @click.group()

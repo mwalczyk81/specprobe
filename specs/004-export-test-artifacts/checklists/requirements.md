@@ -1,8 +1,8 @@
 # Specification Quality Checklist: Deterministic Export for Runnable Test Artifacts
 
-**Purpose**: Validate specification completeness and quality before proceeding to planning  
-**Created**: 2026-09-19  
-**Feature**: [spec.md](../spec.md)  
+**Purpose**: Validate specification completeness and quality before proceeding to planning
+**Created**: 2026-09-19
+**Feature**: [spec.md](../spec.md)
 
 ## Content Quality
 

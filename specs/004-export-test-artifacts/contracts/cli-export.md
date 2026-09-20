@@ -1,7 +1,7 @@
 # CLI Contract: `specprobe export`
 
-**Command**: `specprobe export`  
-**Parent Group**: `specprobe`  
+**Command**: `specprobe export`
+**Parent Group**: `specprobe`
 **Purpose**: Deterministically transform `GeneratedTestCase` JSONL records into runnable Postman Collections and/or REST Client `.http` files without invoking an LLM.
 
 ---

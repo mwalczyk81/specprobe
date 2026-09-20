@@ -295,6 +295,49 @@ def test_extract_schema_properties_helper() -> None:
     assert extract_schema_properties(None) == []
     assert extract_schema_properties({}) == []
 
+    # Unresolved $ref pointer should yield no property assertions
+    assert extract_schema_properties({"$ref": "#/components/schemas/Pet"}) == []
+    assert (
+        extract_schema_properties({"$ref": "#/components/schemas/Pet", "description": "Pet"}) == []
+    )
+    assert (
+        extract_schema_properties({"type": "array", "items": {"$ref": "#/components/schemas/Pet"}})
+        == []
+    )
+
+
+def test_unresolved_ref_schema_shape_omits_property_assertions() -> None:
+    """An unresolved $ref schema_shape must not emit property test assertions."""
+    tc = GeneratedTestCase(
+        operation_id="getPet",
+        description="Get pet by ID",
+        request=RequestFixture(
+            method="GET",
+            path="/pets/1",
+            path_params={},
+            query_params={},
+            headers={"Accept": "application/json"},
+            body=None,
+        ),
+        response=ResponseAssertion(
+            status_code=200,
+            headers={"Content-Type": "application/json"},
+            schema_shape={"$ref": "#/components/schemas/Pet"},
+        ),
+        tags=["pets"],
+    )
+    collection = generate_postman_collection([tc])
+    script = collection["item"][0]["item"][0]["event"][0]["script"]
+    script_text = "\n".join(script["exec"])
+
+    # Must retain status code and header assertions
+    assert 'pm.test("Status code is 200", function () {' in script_text
+    assert 'pm.test("Header Content-Type is present", function () {' in script_text
+
+    # Must NOT emit property assertion block or assert on $ref
+    assert "Response has expected properties" not in script_text
+    assert "$ref" not in script_text
+
 
 @st.composite
 def generated_test_case_strategy(draw: st.DrawFn) -> GeneratedTestCase:

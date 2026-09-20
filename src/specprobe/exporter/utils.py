@@ -138,9 +138,15 @@ def extract_schema_properties(schema_shape: Any) -> list[str]:
                 return [str(p) for p in item_props if p]
             elif isinstance(item_props, dict):
                 return [str(k) for k in item_props.keys()]
+            if "$ref" in items:
+                return []
+
+        # An unresolved $ref carries no resolved property info worth asserting on
+        if "$ref" in schema_shape:
+            return []
 
         # If schema_shape is a plain key-value dict representing object properties directly
-        excluded_keys = {"type", "required", "title", "description", "$schema", "items"}
+        excluded_keys = {"$ref", "$schema", "description", "items", "required", "title", "type"}
         candidate_keys = [str(k) for k in schema_shape.keys() if k not in excluded_keys]
         if candidate_keys:
             return candidate_keys

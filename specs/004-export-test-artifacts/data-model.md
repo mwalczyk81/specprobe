@@ -1,8 +1,8 @@
 # Data Model: Test Artifact Exporter
 
-**Feature**: `004-export-test-artifacts`  
-**Date**: 2026-09-19  
-**Status**: Complete  
+**Feature**: `004-export-test-artifacts`
+**Date**: 2026-09-19
+**Status**: Complete
 
 ---
 

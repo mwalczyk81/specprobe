@@ -1,9 +1,9 @@
 # Tasks: Deterministic Export for Runnable Test Artifacts (Postman & REST Client)
 
-**Feature Branch**: `004-export-test-artifacts`  
-**Specification**: [`specs/004-export-test-artifacts/spec.md`](spec.md)  
-**Implementation Plan**: [`specs/004-export-test-artifacts/plan.md`](plan.md)  
-**Status**: Complete  
+**Feature Branch**: `004-export-test-artifacts`
+**Specification**: [`specs/004-export-test-artifacts/spec.md`](spec.md)
+**Implementation Plan**: [`specs/004-export-test-artifacts/plan.md`](plan.md)
+**Status**: Complete
 
 ---
 

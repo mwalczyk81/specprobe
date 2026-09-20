@@ -14,15 +14,15 @@ Implement the `specprobe export` CLI command to deterministically transform `Gen
 
 ## Technical Context
 
-**Language/Version**: Python 3.11+  
-**Primary Dependencies**: Click (CLI framework), Pydantic v2 (domain validation & schemas), standard library `json`, `urllib.parse`, `uuid`  
-**Storage**: Local filesystem (`collection.json`, `requests.http`) and standard output (`stdout`)  
-**Testing**: pytest (unit tests, integration tests, golden-file structural regression tests)  
-**Target Platform**: Cross-platform (Windows, Linux, macOS)  
-**Project Type**: CLI command (`specprobe export`) & export engine  
-**Performance Goals**: < 200ms latency to export 50 test cases to both formats  
-**Constraints**: 100% deterministic byte-for-byte reproducibility across runs; Zero-LLM (Constitution Principle II); 100% offline with zero outbound network calls (Principle III)  
-**Scale/Scope**: Batches from 0 up to 1,000+ operations; supports single format to `stdout` or dual format to disk  
+**Language/Version**: Python 3.11+
+**Primary Dependencies**: Click (CLI framework), Pydantic v2 (domain validation & schemas), standard library `json`, `urllib.parse`, `uuid`
+**Storage**: Local filesystem (`collection.json`, `requests.http`) and standard output (`stdout`)
+**Testing**: pytest (unit tests, integration tests, golden-file structural regression tests)
+**Target Platform**: Cross-platform (Windows, Linux, macOS)
+**Project Type**: CLI command (`specprobe export`) & export engine
+**Performance Goals**: < 200ms latency to export 50 test cases to both formats
+**Constraints**: 100% deterministic byte-for-byte reproducibility across runs; Zero-LLM (Constitution Principle II); 100% offline with zero outbound network calls (Principle III)
+**Scale/Scope**: Batches from 0 up to 1,000+ operations; supports single format to `stdout` or dual format to disk
 
 ---
 

@@ -93,6 +93,38 @@ def test_single_get_request(sample_get_test_case: GeneratedTestCase) -> None:
     assert expected_block in doc
 
 
+def test_unresolved_ref_schema_shape_omits_property_comment() -> None:
+    """An unresolved $ref schema_shape must not emit '# Expected Properties:' in .http output."""
+    tc = GeneratedTestCase(
+        operation_id="getPet",
+        description="Get pet by ID",
+        request=RequestFixture(
+            method="GET",
+            path="/pets/1",
+            path_params={},
+            query_params={},
+            headers={"Accept": "application/json"},
+            body=None,
+        ),
+        response=ResponseAssertion(
+            status_code=200,
+            headers={"Content-Type": "application/json"},
+            schema_shape={"$ref": "#/components/schemas/Pet"},
+        ),
+        tags=["pets"],
+    )
+    doc = generate_http_document([tc])
+
+    # Must retain metadata and request line
+    assert "# Operation: getPet" in doc
+    assert "# Expected Status: 200" in doc
+    assert "GET {{baseUrl}}/pets/1 HTTP/1.1" in doc
+
+    # Must NOT emit expected properties or $ref
+    assert "# Expected Properties:" not in doc
+    assert "$ref" not in doc
+
+
 def test_post_request_with_json_body(sample_post_test_case: GeneratedTestCase) -> None:
     """Verify POST request formatting with separated JSON body."""
     doc = generate_http_document([sample_post_test_case])

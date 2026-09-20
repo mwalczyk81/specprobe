@@ -1,9 +1,20 @@
 """FastEmbed model wrapper for dense, sparse (BM25), and cross-encoder reranking."""
 
-from collections.abc import Iterable, Sequence
+from __future__ import annotations
 
-from fastembed import SparseTextEmbedding, TextEmbedding
-from fastembed.rerank.cross_encoder import TextCrossEncoder
+import os
+import warnings
+from collections.abc import Iterable, Sequence
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from fastembed import SparseTextEmbedding, TextEmbedding
+    from fastembed.rerank.cross_encoder import TextCrossEncoder
+
+# Disable Hugging Face and tqdm progress bars so CLI stdout/stderr streams remain pure JSON
+os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+os.environ.setdefault("TQDM_DISABLE", "1")
+warnings.filterwarnings("ignore", message=".*Cannot enable progress bars.*")
 
 DEFAULT_DENSE_MODEL = "BAAI/bge-small-en-v1.5"
 DEFAULT_SPARSE_MODEL = "Qdrant/bm25"
@@ -31,18 +42,24 @@ class FastEmbedEngine:
     @property
     def dense_model(self) -> TextEmbedding:
         if self._dense_model is None:
+            from fastembed import TextEmbedding
+
             self._dense_model = TextEmbedding(model_name=self.dense_model_name)
         return self._dense_model
 
     @property
     def sparse_model(self) -> SparseTextEmbedding:
         if self._sparse_model is None:
+            from fastembed import SparseTextEmbedding
+
             self._sparse_model = SparseTextEmbedding(model_name=self.sparse_model_name)
         return self._sparse_model
 
     @property
     def reranker_model(self) -> TextCrossEncoder:
         if self._reranker_model is None:
+            from fastembed.rerank.cross_encoder import TextCrossEncoder
+
             self._reranker_model = TextCrossEncoder(model_name=self.reranker_model_name)
         return self._reranker_model
 

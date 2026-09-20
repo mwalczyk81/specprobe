@@ -1,8 +1,15 @@
 """Global pytest fixtures and configuration for SpecProbe tests."""
 
+import os
+import warnings
 from pathlib import Path
 
 import pytest
+
+# Globally suppress Hugging Face and tqdm download progress bars and warnings in tests
+os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+os.environ["TQDM_DISABLE"] = "1"
+warnings.filterwarnings("ignore", message=".*Cannot enable progress bars.*")
 
 
 @pytest.fixture
