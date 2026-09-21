@@ -14,6 +14,10 @@ from specprobe.exporter.security import SecurityResolver
 from specprobe.generator.gateway import LLMGateway
 from specprobe.generator.models import GeneratedTestCase
 from specprobe.generator.negative_auth import generate_negative_auth_test_cases
+from specprobe.generator.negative_input import (
+    generate_400_test_case,
+    generate_404_test_case,
+)
 from specprobe.generator.prompt import (
     PromptBuilder,
     clean_markdown_fences,
@@ -301,6 +305,8 @@ class GenerationEngine:
         out_stream: Any = None,
         err_stream: Any = None,
         negative_auth: bool = True,
+        not_found: bool = True,
+        invalid_input: bool = True,
     ) -> BatchResult:
         """Process a batch of operation chunks, isolating per-operation failures.
 
@@ -317,6 +323,12 @@ class GenerationEngine:
         negative_auth : bool
             Whether to automatically generate 401 and 403 negative authentication
             test cases for secured operations (defaults to True).
+        not_found : bool
+            Whether to automatically generate 404 negative resource not found
+            test cases for path-parameterized operations (defaults to True).
+        invalid_input : bool
+            Whether to automatically generate 400 negative invalid input
+            test cases for schema-constrained request bodies (defaults to True).
 
         Returns
         -------
@@ -347,6 +359,22 @@ class GenerationEngine:
                             out_stream.write(neg_tc.model_dump_json() + "\n")
                             out_stream.flush()
                         result.test_cases.append(neg_tc)
+
+                if not_found:
+                    tc_404 = generate_404_test_case(test_case, chunk)
+                    if tc_404 is not None:
+                        if stream_stdout:
+                            out_stream.write(tc_404.model_dump_json() + "\n")
+                            out_stream.flush()
+                        result.test_cases.append(tc_404)
+
+                if invalid_input:
+                    tc_400 = generate_400_test_case(test_case, chunk)
+                    if tc_400 is not None:
+                        if stream_stdout:
+                            out_stream.write(tc_400.model_dump_json() + "\n")
+                            out_stream.flush()
+                        result.test_cases.append(tc_400)
             except Exception as exc:
                 err_stream.write(f"Validation failed for operation '{op_id}': {exc}\n")
                 err_stream.flush()

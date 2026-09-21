@@ -10,8 +10,8 @@
 
 **Purpose**: Core model extensions and module initialization
 
-- [ ] T001 Extend `TestType` literal in `src/specprobe/generator/models.py` with `"negative_not_found"` and `"negative_invalid_input"`
-- [ ] T002 Create initial module `src/specprobe/generator/negative_input.py` with module docstring, imports, and `__all__` exports
+- [X] T001 Extend `TestType` literal in `src/specprobe/generator/models.py` with `"negative_not_found"` and `"negative_invalid_input"`
+- [X] T002 Create initial module `src/specprobe/generator/negative_input.py` with module docstring, imports, and `__all__` exports
 
 ---
 
@@ -19,8 +19,8 @@
 
 **Purpose**: Formatting and property serialization prerequisites that all user stories depend on
 
-- [ ] T003 [P] Update JSONL serialization/deserialization helper in `src/specprobe/formatters/jsonl.py` to ensure `negative_not_found` and `negative_invalid_input` test cases roundtrip cleanly without data loss
-- [ ] T004 [P] Update Hypothesis property test strategy in `tests/unit/test_generator_models.py` to draw `negative_not_found` and `negative_invalid_input` alongside existing `test_type` values
+- [X] T003 [P] Update JSONL serialization/deserialization helper in `src/specprobe/formatters/jsonl.py` to ensure `negative_not_found` and `negative_invalid_input` test cases roundtrip cleanly without data loss
+- [X] T004 [P] Update Hypothesis property test strategy in `tests/unit/test_generator_models.py` to draw `negative_not_found` and `negative_invalid_input` alongside existing `test_type` values
 
 **Checkpoint**: Foundation ready — user story implementation can now begin.
 
@@ -34,13 +34,13 @@
 
 ### Tests for User Story 1
 
-- [ ] T005 [P] [US1] Write unit tests for `PathParameterMutator` and `generate_404_test_case` in `tests/unit/generator/test_negative_input.py` covering integer (`999999`), UUID (nil UUID), string (`"specprobe-nonexistent-id"`), enum sentinels, multi-parameter routes (mutating leaf only), and operations without path parameters
+- [X] T005 [P] [US1] Write unit tests for `PathParameterMutator` and `generate_404_test_case` in `tests/unit/generator/test_negative_input.py` covering integer (`999999`), UUID (nil UUID), string (`"specprobe-nonexistent-id"`), enum sentinels, multi-parameter routes (mutating leaf only), and operations without path parameters
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Implement `PathParameterMutator` in `src/specprobe/generator/negative_input.py` with leaf parameter discovery (`find_leaf_path_parameter`) and type-based sentinel generation (`get_nonexistent_sentinel`)
-- [ ] T007 [US1] Implement `generate_404_test_case(positive_tc, chunk)` in `src/specprobe/generator/negative_input.py`, setting `test_type="negative_not_found"`, expected status 404, description `"[404] Resource not found - {op_id}"`, tags `["negative", "404", "not_found"]`, and returning `None` for operations without path parameters
-- [ ] T008 [US1] Integrate `generate_404_test_case` into `GenerationEngine.generate_batch` in `src/specprobe/generator/engine.py`, gated by `not_found: bool = True` parameter
+- [X] T006 [US1] Implement `PathParameterMutator` in `src/specprobe/generator/negative_input.py` with leaf parameter discovery (`find_leaf_path_parameter`) and type-based sentinel generation (`get_nonexistent_sentinel`)
+- [X] T007 [US1] Implement `generate_404_test_case(positive_tc, chunk)` in `src/specprobe/generator/negative_input.py`, setting `test_type="negative_not_found"`, expected status 404, description `"[404] Resource not found - {op_id}"`, tags `["negative", "404", "not_found"]`, and returning `None` for operations without path parameters
+- [X] T008 [US1] Integrate `generate_404_test_case` into `GenerationEngine.generate_batch` in `src/specprobe/generator/engine.py`, gated by `not_found: bool = True` parameter
 
 **Checkpoint**: At this point, User Story 1 is fully functional and testable independently as an MVP.
 
@@ -54,13 +54,13 @@
 
 ### Tests for User Story 2
 
-- [ ] T009 [P] [US2] Write unit tests for `RequestBodyMutator` and `generate_400_test_case` in `tests/unit/generator/test_negative_input.py` covering required property omission, property type inversion, array inversion, and bodiless/non-JSON operation skipping
+- [X] T009 [P] [US2] Write unit tests for `RequestBodyMutator` and `generate_400_test_case` in `tests/unit/generator/test_negative_input.py` covering required property omission, property type inversion, array inversion, and bodiless/non-JSON operation skipping
 
 ### Implementation for User Story 2
 
-- [ ] T010 [US2] Implement `RequestBodyMutator` in `src/specprobe/generator/negative_input.py` to extract `application/json` / `application/*+json` schemas and apply minimal schema-violating mutations (omitting first required property in schema order or inverting first property type)
-- [ ] T011 [US2] Implement `generate_400_test_case(positive_tc, chunk)` and combined dispatcher `generate_negative_input_test_cases` in `src/specprobe/generator/negative_input.py`, setting `test_type="negative_invalid_input"`, status 400, description `"[400] Invalid input - {op_id}"`, tags `["negative", "400", "invalid_input"]`, and returning `None` for bodiless or non-JSON operations
-- [ ] T012 [US2] Integrate `generate_400_test_case` into `GenerationEngine.generate_batch` in `src/specprobe/generator/engine.py`, gated by `invalid_input: bool = True` parameter
+- [X] T010 [US2] Implement `RequestBodyMutator` in `src/specprobe/generator/negative_input.py` to extract `application/json` / `application/*+json` schemas and apply minimal schema-violating mutations (omitting first required property in schema order or inverting first property type)
+- [X] T011 [US2] Implement `generate_400_test_case(positive_tc, chunk)` and combined dispatcher `generate_negative_input_test_cases` in `src/specprobe/generator/negative_input.py`, setting `test_type="negative_invalid_input"`, status 400, description `"[400] Invalid input - {op_id}"`, tags `["negative", "400", "invalid_input"]`, and returning `None` for bodiless or non-JSON operations
+- [X] T012 [US2] Integrate `generate_400_test_case` into `GenerationEngine.generate_batch` in `src/specprobe/generator/engine.py`, gated by `invalid_input: bool = True` parameter
 
 **Checkpoint**: User Stories 1 and 2 are both functional and testable independently.
 
@@ -74,14 +74,14 @@
 
 ### Tests for User Story 3
 
-- [ ] T013 [P] [US3] Write unit tests in `tests/unit/exporter/test_negative_input_export.py` asserting Postman and REST Client export formatting for `negative_not_found` and `negative_invalid_input` test cases (item prefixes `[404]`/`[400]`, script status assertions, `# @name <op>_404`/`# @name <op>_400`, `# Expected Status: 404/400`, and parameterized credentials)
-- [ ] T014 [P] [US3] Write CLI integration tests in `tests/integration/test_generate_cli.py` verifying `--no-not-found` and `--no-invalid-input` flags independently omit corresponding negative test cases while keeping others
+- [X] T013 [P] [US3] Write unit tests in `tests/unit/exporter/test_negative_input_export.py` asserting Postman and REST Client export formatting for `negative_not_found` and `negative_invalid_input` test cases (item prefixes `[404]`/`[400]`, script status assertions, `# @name <op>_404`/`# @name <op>_400`, `# Expected Status: 404/400`, and parameterized credentials)
+- [X] T014 [P] [US3] Write CLI integration tests in `tests/integration/test_generate_cli.py` verifying `--no-not-found` and `--no-invalid-input` flags independently omit corresponding negative test cases while keeping others
 
 ### Implementation for User Story 3
 
-- [ ] T015 [US3] Add CLI option pairs `--not-found/--no-not-found` and `--invalid-input/--no-invalid-input` to `generate` command in `src/specprobe/cli.py` and forward flags to `GenerationEngine.generate_batch`
-- [ ] T016 [US3] Update `_build_postman_item` and `generate_postman_collection` in `src/specprobe/exporter/postman.py` to prepend `[404]` and `[400]` item name prefixes, assert `pm.response.to.have.status(404/400)` in test scripts, retain collection variable parameterization (`Bearer {{bearerAuth}}`), and register collection variables
-- [ ] T017 [US3] Update `_build_request_block` and `generate_http_document` in `src/specprobe/exporter/http_client.py` to emit `# @name <op>_404` and `# @name <op>_400` request blocks with `# Expected Status: 404/400` comments, retaining file variable parameterization (`Authorization: Bearer {{bearerAuth}}`) and top-level `@bearerAuth` file variables
+- [X] T015 [US3] Add CLI option pairs `--not-found/--no-not-found` and `--invalid-input/--no-invalid-input` to `generate` command in `src/specprobe/cli.py` and forward flags to `GenerationEngine.generate_batch`
+- [X] T016 [US3] Update `_build_postman_item` and `generate_postman_collection` in `src/specprobe/exporter/postman.py` to prepend `[404]` and `[400]` item name prefixes, assert `pm.response.to.have.status(404/400)` in test scripts, retain collection variable parameterization (`Bearer {{bearerAuth}}`), and register collection variables
+- [X] T017 [US3] Update `_build_request_block` and `generate_http_document` in `src/specprobe/exporter/http_client.py` to emit `# @name <op>_404` and `# @name <op>_400` request blocks with `# Expected Status: 404/400` comments, retaining file variable parameterization (`Authorization: Bearer {{bearerAuth}}`) and top-level `@bearerAuth` file variables
 
 **Checkpoint**: All three user stories are functional, independently testable, and integrated end-to-end.
 
@@ -91,10 +91,10 @@
 
 **Purpose**: Property testing, golden fixture reconciliation, and verification quality gates
 
-- [ ] T018 [P] Update Hypothesis property test strategies in `tests/unit/test_exporter_postman.py` and `tests/unit/test_exporter_http.py` to draw `negative_not_found` and `negative_invalid_input` test cases and 404/400 status codes
-- [ ] T019 Reconcile existing golden fixtures (`tests/fixtures/golden/security/security_cases.jsonl`, `security.postman.json`, `security.requests.http`) to include new default 404 and 400 negative sibling cases
-- [ ] T020 [P] Execute end-to-end quickstart validation scenarios from `specs/008-negative-input-tests/quickstart.md`
-- [ ] T021 Run full quality gates: `uv run ty check src/`, `uv run ruff check .`, `uv run ruff format --check .`, and `uv run pytest`
+- [X] T018 [P] Update Hypothesis property test strategies in `tests/unit/test_exporter_postman.py` and `tests/unit/test_exporter_http.py` to draw `negative_not_found` and `negative_invalid_input` test cases and 404/400 status codes
+- [X] T019 Reconcile existing golden fixtures (`tests/fixtures/golden/security/security_cases.jsonl`, `security.postman.json`, `security.requests.http`) to include new default 404 and 400 negative sibling cases
+- [X] T020 [P] Execute end-to-end quickstart validation scenarios from `specs/008-negative-input-tests/quickstart.md`
+- [X] T021 Run full quality gates: `uv run ty check src/`, `uv run ruff check .`, `uv run ruff format --check .`, and `uv run pytest`
 
 ---
 

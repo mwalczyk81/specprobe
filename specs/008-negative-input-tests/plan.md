@@ -6,7 +6,7 @@
 
 ## Summary
 
-Extend SpecProbe's automated test generation to produce deterministic negative test cases asserting HTTP 404 Not Found (resource lookup failure via leaf path parameter mutation) and HTTP 400 Bad Request (request body schema violation via property omission or type inversion). 
+Extend SpecProbe's automated test generation to produce deterministic negative test cases asserting HTTP 404 Not Found (resource lookup failure via leaf path parameter mutation) and HTTP 400 Bad Request (request body schema violation via property omission or type inversion).
 
 In strict adherence to SpecProbe Constitution Principle II (Deterministic Artifact Generation / Zero-LLM), both mutations are algorithmic transforms operating on validated happy-path `GeneratedTestCase` instances and OpenAPI `OperationChunk` metadata. Both generators default to enabled in `specprobe generate`, with independent CLI flag pairs (`--not-found/--no-not-found` and `--invalid-input/--no-invalid-input`), and export seamlessly into Postman collections (`[404]`, `[400]` item prefixes, status assertions) and REST Client `.http` files (`# @name <op>_404`, `# @name <op>_400`, `# Expected Status:` comments).
 

@@ -16,7 +16,6 @@
 - Q: When an operation defines multiple path parameters in its route (e.g., /orgs/{orgId}/projects/{projectId}/items/{itemId}), which path parameter should be mutated to generate the 404 Not Found test case? → A: Mutate only the leaf (last declared in path) parameter, keeping all ancestor/parent parameter values valid.
 - Q: Should schema-aware 400 invalid-input test generation only apply to JSON request bodies, or should it also mutate non-JSON media types? → A: Target only JSON request bodies (application/json, application/*+json), skipping non-JSON payloads.
 
-
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Deterministic 404 Not-Found Test Generation (Priority: P1)

@@ -91,7 +91,13 @@ def test_test_type_defaults_to_positive() -> None:
 
 @pytest.mark.parametrize(
     "valid_type",
-    ["positive", "negative_auth_missing", "negative_auth_invalid"],
+    [
+        "positive",
+        "negative_auth_missing",
+        "negative_auth_invalid",
+        "negative_not_found",
+        "negative_invalid_input",
+    ],
 )
 def test_valid_test_types_accepted(valid_type: str) -> None:
     """All defined test_type values must be accepted."""

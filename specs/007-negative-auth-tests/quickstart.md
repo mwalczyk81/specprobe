@@ -28,7 +28,7 @@ Using pre-recorded search results for a secured specification (e.g. Petstore wit
 uv run specprobe generate tests/fixtures/search_results_secured.json > test_cases_with_neg.jsonl
 ```
 
-### Expected Outcome:
+### Step 1 Expected Outcome
 - Each secured operation produces 3 JSONL records:
   - 1 happy-path test case (`test_type: "positive"`, `response.status_code: 200`)
   - 1 missing-auth negative case (`test_type: "negative_auth_missing"`, `response.status_code: 401`, stripped auth headers)
@@ -40,7 +40,7 @@ uv run specprobe generate tests/fixtures/search_results_secured.json > test_case
 uv run specprobe generate --no-negative-auth tests/fixtures/search_results_secured.json > test_cases_happy_only.jsonl
 ```
 
-### Expected Outcome:
+### Step 2 Expected Outcome
 - Exactly 1 test case per operation (`test_type: "positive"`, `response.status_code: 200`), identical to Feature 006 output.
 
 ---

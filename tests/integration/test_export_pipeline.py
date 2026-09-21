@@ -110,9 +110,9 @@ def test_full_pipeline_search_generate_export(tmp_path: Path) -> None:
     assert gen_res.exit_code == 0
     generated_jsonl = gen_res.output
     lines = [line.strip() for line in generated_jsonl.strip().splitlines() if line.strip()]
-    # 4 operations: 3 secured -> 9 test cases (positive, 401, 403);
-    # 1 unsecured -> 1 test case. Total: 10
-    assert len(lines) == 10
+    # 4 operations: listPets (pos, 401, 403), createPets (pos, 401, 403, 400),
+    # showPetById (pos, 404), delete_pets_pet_id (pos, 401, 403, 404). Total: 13
+    assert len(lines) == 13
 
     # Step 4: Pipe generated test cases JSONL into export
     export_res = runner.invoke(
@@ -144,20 +144,23 @@ def test_full_pipeline_search_generate_export(tmp_path: Path) -> None:
     col_data = json.loads(col_file.read_text(encoding="utf-8"))
     assert col_data["info"]["name"] == "Pipeline Export Collection"
     assert col_data["variable"][0]["value"] == "http://127.0.0.1:8000"
-    # Tag folder "pets" should contain all 10 generated items (positive + 401 + 403)
+    # Tag folder "pets" should contain all 13 generated items (positive, 401, 403, 404, 400)
     assert len(col_data["item"]) == 1
     assert col_data["item"][0]["name"] == "pets"
-    assert len(col_data["item"][0]["item"]) == 10
+    assert len(col_data["item"][0]["item"]) == 13
 
     # Verify REST Client document parses and contains requests
     http_doc = http_file.read_text(encoding="utf-8")
     assert http_doc.startswith("@baseUrl = http://127.0.0.1:8000\n")
     assert "@apiKeyAuth = <api_key>" in http_doc
-    assert http_doc.count("###") == 10
+    assert http_doc.count("###") == 13
     assert "# @name listPets" in http_doc
     assert "# @name listPets_401" in http_doc
     assert "# @name listPets_403" in http_doc
     assert "# @name createPets" in http_doc
+    assert "# @name createPets_400" in http_doc
     assert "# @name showPetById" in http_doc
+    assert "# @name showPetById_404" in http_doc
     assert "# @name delete_pets_pet_id" in http_doc
-    assert "Exported 10 test cases to" in export_res.stderr
+    assert "# @name delete_pets_pet_id_404" in http_doc
+    assert "Exported 13 test cases to" in export_res.stderr

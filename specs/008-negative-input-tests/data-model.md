@@ -14,8 +14,8 @@ TestType = Literal[
     "positive",
     "negative_auth_missing",
     "negative_auth_invalid",
-    "negative_not_found",      # NEW: 404 Not Found (path parameter nonexistent entity)
-    "negative_invalid_input",   # NEW: 400 Bad Request (request body schema violation)
+    "negative_not_found",  # NEW: 404 Not Found (path parameter nonexistent entity)
+    "negative_invalid_input",  # NEW: 400 Bad Request (request body schema violation)
 ]
 ```
 
@@ -122,12 +122,14 @@ def generate_404_test_case(
     """Generate a 404 Not Found negative test case by mutating the leaf path parameter."""
     ...
 
+
 def generate_400_test_case(
     positive_tc: GeneratedTestCase,
     chunk: OperationChunk,
 ) -> GeneratedTestCase | None:
     """Generate a 400 Bad Request negative test case by violating the request body schema."""
     ...
+
 
 def generate_negative_input_test_cases(
     positive_tc: GeneratedTestCase,

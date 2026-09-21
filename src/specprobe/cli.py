@@ -436,6 +436,22 @@ def search_command(
         "negative test cases for secured operations."
     ),
 )
+@click.option(
+    "--not-found/--no-not-found",
+    default=True,
+    show_default=True,
+    help=(
+        "Generate 404 (resource not found) negative test cases for path-parameterized operations."
+    ),
+)
+@click.option(
+    "--invalid-input/--no-invalid-input",
+    default=True,
+    show_default=True,
+    help=(
+        "Generate 400 (invalid input) negative test cases for schema-constrained request bodies."
+    ),
+)
 def generate_command(
     results_file: str | None,
     model: str,
@@ -444,6 +460,8 @@ def generate_command(
     cache_dir: str,
     no_cache: bool,
     negative_auth: bool,
+    not_found: bool,
+    invalid_input: bool,
 ) -> None:
     """Generate schema-validated test cases from OpenAPI operation search results.
 
@@ -515,6 +533,8 @@ def generate_command(
         chunks,
         stream_stdout=True,
         negative_auth=negative_auth,
+        not_found=not_found,
+        invalid_input=invalid_input,
     )
 
     if batch_result.total > 0 and batch_result.succeeded == 0:

@@ -1,8 +1,8 @@
 # Phase 0 Research: Security-Scheme-Aware Authentication
 
-**Feature**: `006-security-scheme-auth`  
-**Date**: 2026-09-20  
-**Status**: Completed  
+**Feature**: `006-security-scheme-auth`
+**Date**: 2026-09-20
+**Status**: Completed
 
 ---
 
@@ -34,7 +34,7 @@
   )
   ```
   In `GenerationEngine._validate_completion()`, copy `chunk.metadata.security` and `chunk.components.get("securitySchemes", {})` into the generated test case.
-- **Rationale**: 
+- **Rationale**:
   - Preserves 100% backward compatibility with existing test case JSONL records (defaults to empty list/dict).
   - Gives `specprobe export` direct access to scheme definitions, requirement objects, and scope arrays without relying on fragile reverse-engineering or heuristic guesswork.
   - Keeps `RequestFixture` clean and focused on HTTP request attributes.

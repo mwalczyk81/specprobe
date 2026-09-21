@@ -1,7 +1,7 @@
 # Contract: Postman Collection v2.1.0 Security Export
 
-**Target Interface**: `specprobe export --format postman` (or `--format both`)  
-**Output Format**: Postman Collection Schema v2.1.0 JSON  
+**Target Interface**: `specprobe export --format postman` (or `--format both`)
+**Output Format**: Postman Collection Schema v2.1.0 JSON
 
 ---
 

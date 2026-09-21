@@ -214,7 +214,13 @@ class GeneratedTestCase(BaseModel):
     @classmethod
     def validate_test_type(cls, v: str) -> str:
         """Validate that test_type is one of the supported discriminators."""
-        allowed = {"positive", "negative_auth_missing", "negative_auth_invalid"}
+        allowed = {
+            "positive",
+            "negative_auth_missing",
+            "negative_auth_invalid",
+            "negative_not_found",
+            "negative_invalid_input",
+        }
         if v not in allowed:
             raise ValueError(f"Invalid test_type '{v}'. Must be one of {sorted(allowed)}.")
         return v
