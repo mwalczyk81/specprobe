@@ -70,12 +70,8 @@ def _build_postman_item(test_case: GeneratedTestCase) -> dict[str, Any]:
     if not substituted_path.startswith("/"):
         substituted_path = f"/{substituted_path}"
 
-    is_negative_401 = (
-        test_case.test_type == "negative_auth_missing" or test_case.response.status_code == 401
-    )
-    is_negative_403 = (
-        test_case.test_type == "negative_auth_invalid" or test_case.response.status_code == 403
-    )
+    is_negative_401 = getattr(test_case, "test_type", "positive") == "negative_auth_missing"
+    is_negative_403 = getattr(test_case, "test_type", "positive") == "negative_auth_invalid"
     is_negative = is_negative_401 or is_negative_403
 
     # Resolve security credentials

@@ -206,3 +206,168 @@ def test_http_export_file_variables_clean(petstore_test_suite: list[GeneratedTes
     assert "@baseUrl = http://localhost:8000" in top_lines
     assert "@bearerAuth = <token>" in top_lines
     assert not any("invalid" in line for line in top_lines)
+
+
+# ---------------------------------------------------------------------------
+# Positive Test Cases with 401/403 Status Code Regression Tests
+# ---------------------------------------------------------------------------
+
+
+def test_postman_export_positive_case_with_401_or_403_status() -> None:
+    """Verify positive test cases expecting 401/403 are not treated as negative auth fixtures.
+
+    A test case with test_type='positive' that legitimately asserts 401 or 403
+    (e.g., an endpoint explicitly testing credential verification or token revocation)
+    must NOT be serialized with negative fixture semantics:
+    - Item name must not be prefixed with [401] or [403]
+    - Credentials must be parameterized as collection variables (e.g., Bearer {{bearerAuth}})
+      rather than omitted (as in 401 negative auth) or inlined (as in 403 negative auth)
+    - Status assertion script must still verify the expected 401 / 403 status
+    - Collection variables must be registered
+    """
+    sec = [{"bearerAuth": []}]
+    sec_schemes = {"bearerAuth": {"type": "http", "scheme": "bearer"}}
+
+    pos_401 = GeneratedTestCase(
+        test_type="positive",
+        operation_id="probeAuth401",
+        description="Verify expired token rejection",
+        request=RequestFixture(
+            method="GET",
+            path="/auth/probe",
+            path_params={},
+            query_params={},
+            headers={"Accept": "application/json", "Authorization": "Bearer <token>"},
+            body=None,
+        ),
+        response=ResponseAssertion(
+            status_code=401,
+            headers={"Content-Type": "application/json"},
+            schema_shape=None,
+        ),
+        tags=["auth"],
+        security=sec,
+        security_schemes=sec_schemes,
+    )
+
+    pos_403 = GeneratedTestCase(
+        test_type="positive",
+        operation_id="probeAuth403",
+        description="Verify insufficient scope rejection",
+        request=RequestFixture(
+            method="GET",
+            path="/auth/restricted",
+            path_params={},
+            query_params={},
+            headers={"Accept": "application/json", "Authorization": "Bearer <token>"},
+            body=None,
+        ),
+        response=ResponseAssertion(
+            status_code=403,
+            headers={"Content-Type": "application/json"},
+            schema_shape=None,
+        ),
+        tags=["auth"],
+        security=sec,
+        security_schemes=sec_schemes,
+    )
+
+    collection = generate_postman_collection([pos_401, pos_403])
+    auth_folder = collection["item"][0]
+    items = auth_folder["item"]
+
+    # 1. Names must NOT have [401] or [403] prefix
+    item_401 = next(item for item in items if item["name"] == "Verify expired token rejection")
+    item_403 = next(item for item in items if item["name"] == "Verify insufficient scope rejection")
+    assert not item_401["name"].startswith("[401]")
+    assert not item_403["name"].startswith("[403]")
+
+    # 2. Authorization header must be parameterized with collection variable {{bearerAuth}}
+    headers_401 = {h["key"]: h["value"] for h in item_401["request"]["header"]}
+    headers_403 = {h["key"]: h["value"] for h in item_403["request"]["header"]}
+    assert headers_401["Authorization"] == "Bearer {{bearerAuth}}"
+    assert headers_403["Authorization"] == "Bearer {{bearerAuth}}"
+
+    # 3. Assertions in script should check the expected status
+    script_401 = "".join(item_401["event"][0]["script"]["exec"])
+    script_403 = "".join(item_403["event"][0]["script"]["exec"])
+    assert "pm.response.to.have.status(401)" in script_401
+    assert "pm.response.to.have.status(403)" in script_403
+
+    # 4. Collection variables must include bearerAuth
+    var_keys = [v["key"] for v in collection["variable"]]
+    assert "bearerAuth" in var_keys
+
+
+def test_http_export_positive_case_with_401_or_403_status() -> None:
+    """Verify positive .http export with 401/403 status is not serialized with negative annotations.
+
+    - # @name must NOT have _401 or _403 suffix
+    - Authorization headers must use variable parameterization {{bearerAuth}}
+    - # Expected Status must be 401 / 403
+    - Top-level variables must register @bearerAuth
+    """
+    sec = [{"bearerAuth": []}]
+    sec_schemes = {"bearerAuth": {"type": "http", "scheme": "bearer"}}
+
+    pos_401 = GeneratedTestCase(
+        test_type="positive",
+        operation_id="probeAuth401",
+        description="Verify expired token rejection",
+        request=RequestFixture(
+            method="GET",
+            path="/auth/probe",
+            path_params={},
+            query_params={},
+            headers={"Accept": "application/json", "Authorization": "Bearer <token>"},
+            body=None,
+        ),
+        response=ResponseAssertion(
+            status_code=401,
+            headers={"Content-Type": "application/json"},
+            schema_shape=None,
+        ),
+        tags=["auth"],
+        security=sec,
+        security_schemes=sec_schemes,
+    )
+
+    pos_403 = GeneratedTestCase(
+        test_type="positive",
+        operation_id="probeAuth403",
+        description="Verify insufficient scope rejection",
+        request=RequestFixture(
+            method="GET",
+            path="/auth/restricted",
+            path_params={},
+            query_params={},
+            headers={"Accept": "application/json", "Authorization": "Bearer <token>"},
+            body=None,
+        ),
+        response=ResponseAssertion(
+            status_code=403,
+            headers={"Content-Type": "application/json"},
+            schema_shape=None,
+        ),
+        tags=["auth"],
+        security=sec,
+        security_schemes=sec_schemes,
+    )
+
+    content = generate_http_document([pos_401, pos_403])
+
+    # 1. Names must not have negative suffixes
+    assert "# @name probeAuth401\n" in content
+    assert "# @name probeAuth401_401" not in content
+    assert "# @name probeAuth403\n" in content
+    assert "# @name probeAuth403_403" not in content
+
+    # 2. Expected Status comments
+    assert "# Expected Status: 401" in content
+    assert "# Expected Status: 403" in content
+
+    # 3. Parameterized header {{bearerAuth}}
+    assert "Authorization: Bearer {{bearerAuth}}" in content
+
+    # 4. Top-level variable
+    assert "@bearerAuth = <token>" in content
