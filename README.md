@@ -23,7 +23,7 @@ spec.yaml → chunk → index → search → generate → export
 
 ## Design principles
 
-- **Local-first by default.** Embeddings and reranking always run on-device. The LLM gateway defaults to a local LM Studio endpoint (`http://localhost:1234/v1`) with no API key required; cloud providers (OpenAI, Anthropic, Gemini) are strictly opt-in and refuse to run without the matching `*_API_KEY` env var.
+- **Local-first by default.** Embeddings and reranking always run on-device. The LLM gateway defaults to a local LM Studio endpoint (`http://localhost:1234/v1`) with no API key required; cloud providers (OpenAI, Anthropic, Gemini, AWS Bedrock) are strictly opt-in and refuse to run without the matching `*_API_KEY` (or `AWS_REGION` / `AWS_DEFAULT_REGION` for Bedrock) env var.
 - **Deterministic where it can be.** Chunking and exported test artifacts are pure parsing/templating — no LLM, no drift, reproducible byte-for-byte.
 - **One gateway.** All model calls route through [LiteLLM](https://github.com/BerriAI/litellm), so switching between local and cloud models is a `--model`/`--api-base` flag, not a code change.
 
@@ -78,7 +78,7 @@ uv run specprobe audit ./exported_tests/collection.json --spec petstore.yaml --s
 | `search [query]` | Natural-language retrieval or unranked filter-only spec extraction | `--mode {dense,hybrid,hybrid-rerank}`, `-n/--limit`, `--tag`, `--method`, `--deprecated/--no-deprecated`, `--source-title`, `--source-version`, `--full` |
 | `generate [results_file]` | LLM test-case generation from search results (file arg or stdin) | `--model`, `--api-base`, `--temperature`, `--cache-dir`, `--no-cache`, `--negative-auth/--no-negative-auth`, `--not-found/--no-not-found`, `--invalid-input/--no-invalid-input` |
 | `export [test_cases_file]` | Transform generated test cases into runnable Postman or REST Client artifacts (file arg or stdin) | `--format {both,postman,http}`, `-o/--output <path/dir>`, `--collection-name <name>`, `--base-url <url>` |
-| `audit [artifact_file]` | Compare a spec against test artifacts for coverage gaps (file arg or stdin) | `--index-dir`, `--spec`, `--summary`, `--no-cache`, `--cache-dir` |
+| `audit [artifact_file]` | Compare a spec against test artifacts for coverage gaps (file arg or stdin) | `--index-dir`, `--spec`, `--summary`, `--no-cache`, `--cache-dir`, `--model`, `--api-base` |
 
 When `search` is called without a `<query>`, it operates in filter-only mode: all operations matching the provided metadata filter(s) are retrieved unranked (`score: 0.0`) with unlimited pagination by default (or respecting explicit `-n/--limit`). Either `<query>` or at least one metadata filter must be provided.
 
@@ -86,12 +86,12 @@ Every command also accepts input via stdin where a file argument is optional, so
 
 ## Configuration
 
-All `generate` flags can be set via environment variable instead (flag takes precedence):
+All `generate` and `audit` flags can be set via environment variable instead (flag takes precedence):
 
 | Env var | Default |
 |---|---|
 | `SPECPROBE_LLM_MODEL` | `openai/local-model` |
-| `SPECPROBE_LLM_API_BASE` | `http://localhost:1234/v1` |
+| `SPECPROBE_LLM_API_BASE` | `http://localhost:1234/v1` (omitted for Bedrock) |
 | `SPECPROBE_LLM_API_KEY` | *(none)* |
 | `SPECPROBE_LLM_TEMPERATURE` | `0.0` |
 | `SPECPROBE_CACHE_DIR` | `.specprobe/cache` |
@@ -99,7 +99,11 @@ All `generate` flags can be set via environment variable instead (flag takes pre
 | `SPECPROBE_NO_CACHE` | `false` |
 | `SPECPROBE_INDEX_DIR` | `.specprobe/index` |
 
-To use a cloud model, set `--model openai/gpt-4o` (or `anthropic/...`, `gemini/...`) and the corresponding `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` — omitting the key fails fast with an explanatory error rather than silently falling back.
+To use a cloud model, set `--model openai/gpt-4o` (or `anthropic/...`, `gemini/...`, or `bedrock/...`) and the corresponding credentials/configuration:
+- For OpenAI, Anthropic, or Gemini: set `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY`.
+- For AWS Bedrock: set `--model bedrock/<model-id>` (e.g. `bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0`) and ensure `AWS_REGION` or `AWS_DEFAULT_REGION` is configured. Bedrock calls omit `--api-base` by default to use native AWS SDK regional routing, but an explicit `--api-base` (or `SPECPROBE_LLM_API_BASE`) can be passed to route through an enterprise proxy (e.g. Fiserv Aitrium).
+
+Omitting the required environment variable fails fast with an explanatory error rather than silently falling back.
 
 ## Development
 

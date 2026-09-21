@@ -67,9 +67,15 @@ class LLMGateway:
         temperature: float | None = None,
     ) -> None:
         resolved_model = model or os.environ.get("SPECPROBE_LLM_MODEL") or DEFAULT_LOCAL_MODEL
-        resolved_api_base = (
-            api_base or os.environ.get("SPECPROBE_LLM_API_BASE") or DEFAULT_LOCAL_API_BASE
-        )
+        if api_base is not None:
+            resolved_api_base = api_base
+        elif os.environ.get("SPECPROBE_LLM_API_BASE"):
+            resolved_api_base = os.environ["SPECPROBE_LLM_API_BASE"]
+        elif resolved_model.lower().startswith("bedrock/"):
+            resolved_api_base = None
+        else:
+            resolved_api_base = DEFAULT_LOCAL_API_BASE
+
         resolved_temp = (
             temperature
             if temperature is not None
@@ -85,6 +91,16 @@ class LLMGateway:
 
     def _validate_cloud_opt_in(self) -> None:
         """Enforce SpecProbe Constitution Principle III & IV: cloud providers strictly opt-in."""
+        model_lower = self.model.lower()
+        if model_lower.startswith("bedrock/"):
+            if not (os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION")):
+                raise ValueError(
+                    f"Cloud model '{self.model}' requires AWS_REGION or "
+                    "AWS_DEFAULT_REGION environment variable. "
+                    "Cloud providers are strictly opt-in per SpecProbe Constitution Principle IV."
+                )
+            return
+
         # If targeting a local or private network endpoint, dummy key is sufficient
         if is_local_endpoint(self.api_base):
             if not self.api_key:
@@ -92,7 +108,6 @@ class LLMGateway:
             return
 
         # Remote/Cloud model requested: verify corresponding environment variable is present
-        model_lower = self.model.lower()
         if model_lower.startswith("openai/") or model_lower.startswith("gpt-"):
             if not os.environ.get("OPENAI_API_KEY") and not self.api_key:
                 raise ValueError(

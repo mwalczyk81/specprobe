@@ -402,9 +402,12 @@ def search_command(
 @click.option(
     "--api-base",
     type=str,
-    default=lambda: os.environ.get("SPECPROBE_LLM_API_BASE", "http://localhost:1234/v1"),
-    show_default=True,
-    help="Base endpoint URL for model requests.",
+    default=None,
+    show_default=False,
+    help=(
+        "Base endpoint URL for model requests "
+        "(defaults to http://localhost:1234/v1 for local models; omitted for Bedrock)."
+    ),
 )
 @click.option(
     "--temperature",
@@ -455,7 +458,7 @@ def search_command(
 def generate_command(
     results_file: str | None,
     model: str,
-    api_base: str,
+    api_base: str | None,
     temperature: float,
     cache_dir: str,
     no_cache: bool,
@@ -672,6 +675,18 @@ def export_command(
     help="Bypass LLM disk cache when generating semantic assertion critiques.",
 )
 @click.option(
+    "--model",
+    type=str,
+    default=None,
+    help="Model identifier string passed to LiteLLM (or SPECPROBE_LLM_MODEL).",
+)
+@click.option(
+    "--api-base",
+    type=str,
+    default=None,
+    help="Base endpoint URL for model requests (or SPECPROBE_LLM_API_BASE).",
+)
+@click.option(
     "--cache-dir",
     type=click.Path(file_okay=False),
     default=None,
@@ -683,6 +698,8 @@ def audit_command(
     spec_file: str | None,
     summary: bool,
     no_cache: bool,
+    model: str | None,
+    api_base: str | None,
     cache_dir: str | None,
 ) -> None:
     """Compare an API specification against existing test artifacts (Postman Collections or
@@ -730,7 +747,7 @@ def audit_command(
         sys.exit(1)
 
     try:
-        gateway = LLMGateway()
+        gateway = LLMGateway(model=model, api_base=api_base)
     except Exception as exc:
         click.echo(f"Error initializing LLM gateway: {exc}", err=True)
         sys.exit(1)
