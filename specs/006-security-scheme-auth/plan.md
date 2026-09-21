@@ -8,7 +8,7 @@
 
 ## Summary
 
-This feature enhances SpecProbe to recognize, propagate, and export OpenAPI security requirements end-to-end (`chunk` -> `search` -> `generate` -> `export`). 
+This feature enhances SpecProbe to recognize, propagate, and export OpenAPI security requirements end-to-end (`chunk` -> `search` -> `generate` -> `export`).
 
 Currently, `specprobe chunk` extracts `metadata.security` for each operation, but `components.securitySchemes` is dropped, and downstream commands (`generate`, `export`) omit authentication credentials entirely. When exported Postman collections or `.http` files are executed against real protected APIs, every request fails with HTTP 401 Unauthorized or 403 Forbidden.
 
@@ -24,15 +24,15 @@ The implementation:
 
 ## Technical Context
 
-**Language/Version**: Python >= 3.11  
-**Primary Dependencies**: Click, Rich, Pydantic, LiteLLM, jsonschema, pytest, hypothesis, uv, ruff, ty  
-**Storage**: Local file system (JSONL test cases, Postman JSON collections, `.http` documents)  
-**Testing**: pytest, hypothesis (unit tests, integration pipeline tests, byte-identical golden regression tests)  
-**Target Platform**: Cross-platform (Windows, Linux, macOS)  
-**Project Type**: CLI tool & library (`specprobe chunk`, `specprobe search`, `specprobe generate`, `specprobe export`)  
-**Performance Goals**: < 50ms per operation chunking/export; byte-for-byte deterministic reproducibility  
-**Constraints**: Fully offline-capable; zero external network requests during export (Constitution Principle II); strict Pydantic validation (Principle V); zero static type diagnostics (`ty check src/`)  
-**Scale/Scope**: Operations spanning diverse security schemes (Bearer, Basic, API Key in header/query, OAuth2 with scopes, optional security, compound security)  
+**Language/Version**: Python >= 3.11
+**Primary Dependencies**: Click, Rich, Pydantic, LiteLLM, jsonschema, pytest, hypothesis, uv, ruff, ty
+**Storage**: Local file system (JSONL test cases, Postman JSON collections, `.http` documents)
+**Testing**: pytest, hypothesis (unit tests, integration pipeline tests, byte-identical golden regression tests)
+**Target Platform**: Cross-platform (Windows, Linux, macOS)
+**Project Type**: CLI tool & library (`specprobe chunk`, `specprobe search`, `specprobe generate`, `specprobe export`)
+**Performance Goals**: < 50ms per operation chunking/export; byte-for-byte deterministic reproducibility
+**Constraints**: Fully offline-capable; zero external network requests during export (Constitution Principle II); strict Pydantic validation (Principle V); zero static type diagnostics (`ty check src/`)
+**Scale/Scope**: Operations spanning diverse security schemes (Bearer, Basic, API Key in header/query, OAuth2 with scopes, optional security, compound security)
 
 ---
 

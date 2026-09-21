@@ -1,7 +1,7 @@
 # Quickstart Validation Guide: Security-Scheme-Aware Authentication
 
-**Feature**: `006-security-scheme-auth`  
-**Date**: 2026-09-20  
+**Feature**: `006-security-scheme-auth`
+**Date**: 2026-09-20
 
 This guide provides end-to-end validation steps to verify security-scheme-aware authentication across the entire SpecProbe pipeline (`chunk` -> `search` -> `generate` -> `export`).
 

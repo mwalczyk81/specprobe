@@ -31,7 +31,9 @@ def _build_request_block(test_case: GeneratedTestCase) -> str:
     """
     is_negative_401 = getattr(test_case, "test_type", "positive") == "negative_auth_missing"
     is_negative_403 = getattr(test_case, "test_type", "positive") == "negative_auth_invalid"
-    is_negative = is_negative_401 or is_negative_403
+    is_negative_404 = getattr(test_case, "test_type", "positive") == "negative_not_found"
+    is_negative_400 = getattr(test_case, "test_type", "positive") == "negative_invalid_input"
+    is_negative_auth = is_negative_401 or is_negative_403
 
     lines: list[str] = ["###"]
 
@@ -40,6 +42,10 @@ def _build_request_block(test_case: GeneratedTestCase) -> str:
         lines.append(f"# @name {test_case.operation_id}_401")
     elif is_negative_403:
         lines.append(f"# @name {test_case.operation_id}_403")
+    elif is_negative_404:
+        lines.append(f"# @name {test_case.operation_id}_404")
+    elif is_negative_400:
+        lines.append(f"# @name {test_case.operation_id}_400")
     else:
         lines.append(f"# @name {test_case.operation_id}")
     lines.append(f"# Operation: {test_case.operation_id}")
@@ -58,9 +64,9 @@ def _build_request_block(test_case: GeneratedTestCase) -> str:
     if schema_sig:
         lines.append(schema_sig)
 
-    # Resolve security credentials (only parameterize for positive test cases)
+    # Resolve security credentials (only parameterize for positive and negative input test cases)
     resolved_creds = []
-    if not is_negative:
+    if not is_negative_auth:
         resolved_creds = SecurityResolver.resolve_credentials(
             test_case.security,
             test_case.security_schemes,
@@ -149,7 +155,8 @@ def generate_http_document(
     sec_vars: list[str] = []
 
     for tc in test_cases:
-        if getattr(tc, "test_type", "positive") != "positive":
+        test_type = getattr(tc, "test_type", "positive")
+        if test_type in ("negative_auth_missing", "negative_auth_invalid"):
             continue
         tc_creds = SecurityResolver.resolve_credentials(tc.security, tc.security_schemes)
         for cred in tc_creds:

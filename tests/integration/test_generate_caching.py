@@ -35,8 +35,8 @@ def test_generate_offline_cache_replay() -> None:
     assert result.exit_code == 0
     lines = [line.strip() for line in result.output.strip().split("\n") if line.strip()]
     # listPets is secured -> 3 test cases (positive, 401, 403);
-    # showPetById is unsecured -> 1 test case. Total: 4
-    assert len(lines) == 4
+    # showPetById has path param -> 2 test cases (positive, 404). Total: 5
+    assert len(lines) == 5
 
     test_cases = [GeneratedTestCase.model_validate_json(line) for line in lines]
     assert test_cases[0].operation_id == "listPets"
@@ -47,6 +47,8 @@ def test_generate_offline_cache_replay() -> None:
     assert test_cases[2].test_type == "negative_auth_invalid"
     assert test_cases[3].operation_id == "showPetById"
     assert test_cases[3].test_type == "positive"
+    assert test_cases[4].operation_id == "showPetById"
+    assert test_cases[4].test_type == "negative_not_found"
 
 
 def test_generate_no_cache_bypasses_cache(tmp_path: Path) -> None:
@@ -111,7 +113,7 @@ def test_generate_populates_cache_and_replays(tmp_path: Path) -> None:
 
     assert res2.exit_code == 0
     lines = [line.strip() for line in res2.output.strip().split("\n") if line.strip()]
-    assert len(lines) == 4
+    assert len(lines) == 5
 
 
 def test_cache_environment_variables(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

@@ -1,7 +1,7 @@
 # Contract: VS Code REST Client (.http) Security Export
 
-**Target Interface**: `specprobe export --format http` (or `--format both`)  
-**Output Format**: RFC 7230 Plain-Text HTTP Document  
+**Target Interface**: `specprobe export --format http` (or `--format both`)
+**Output Format**: RFC 7230 Plain-Text HTTP Document
 
 ---
 

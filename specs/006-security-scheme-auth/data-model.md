@@ -1,8 +1,8 @@
 # Phase 1 Data Model: Security-Scheme-Aware Authentication
 
-**Feature**: `006-security-scheme-auth`  
-**Date**: 2026-09-20  
-**Status**: Completed  
+**Feature**: `006-security-scheme-auth`
+**Date**: 2026-09-20
+**Status**: Completed
 
 ---
 

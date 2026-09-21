@@ -72,7 +72,9 @@ def _build_postman_item(test_case: GeneratedTestCase) -> dict[str, Any]:
 
     is_negative_401 = getattr(test_case, "test_type", "positive") == "negative_auth_missing"
     is_negative_403 = getattr(test_case, "test_type", "positive") == "negative_auth_invalid"
-    is_negative = is_negative_401 or is_negative_403
+    is_negative_404 = getattr(test_case, "test_type", "positive") == "negative_not_found"
+    is_negative_400 = getattr(test_case, "test_type", "positive") == "negative_invalid_input"
+    is_negative_auth = is_negative_401 or is_negative_403
 
     # Resolve security credentials
     resolved_creds = SecurityResolver.resolve_credentials(
@@ -80,9 +82,10 @@ def _build_postman_item(test_case: GeneratedTestCase) -> dict[str, Any]:
         test_case.security_schemes,
     )
 
-    # Build query dictionary (parameterize credentials for positive cases only)
+    # Build query dictionary (parameterize credentials for positive and negative input cases;
+    # negative auth cases preserve raw queries)
     query_dict = dict(test_case.request.query_params) if test_case.request.query_params else {}
-    if not is_negative:
+    if not is_negative_auth:
         for cred in resolved_creds:
             if cred.transport == "query":
                 query_dict[cred.target_name] = cred.wire_value_template
@@ -108,10 +111,10 @@ def _build_postman_item(test_case: GeneratedTestCase) -> dict[str, Any]:
     if query_list:
         url_obj["query"] = query_list
 
-    # Headers (parameterize credentials for positive cases only;
-    # negative cases preserve raw headers)
+    # Headers (parameterize credentials for positive and negative input cases;
+    # negative auth cases preserve raw headers)
     headers_dict = dict(test_case.request.headers) if test_case.request.headers else {}
-    if not is_negative:
+    if not is_negative_auth:
         for cred in resolved_creds:
             if cred.transport == "header":
                 existing_key = next(
@@ -138,7 +141,7 @@ def _build_postman_item(test_case: GeneratedTestCase) -> dict[str, Any]:
     desc_lines = [f"Operation: {test_case.operation_id}"]
     if test_case.description:
         desc_lines.append(test_case.description)
-    if not is_negative:
+    if not is_negative_auth:
         for cred in resolved_creds:
             sec_desc = format_postman_security_desc(cred)
             if sec_desc:
@@ -186,6 +189,10 @@ def _build_postman_item(test_case: GeneratedTestCase) -> dict[str, Any]:
         item_name = f"[401] {item_name}"
     elif is_negative_403 and not item_name.startswith("[403]"):
         item_name = f"[403] {item_name}"
+    elif is_negative_404 and not item_name.startswith("[404]"):
+        item_name = f"[404] {item_name}"
+    elif is_negative_400 and not item_name.startswith("[400]"):
+        item_name = f"[400] {item_name}"
 
     return {
         "name": item_name,
@@ -250,7 +257,8 @@ def generate_postman_collection(
     sec_variables: list[dict[str, Any]] = []
 
     for tc in test_cases:
-        if getattr(tc, "test_type", "positive") != "positive":
+        test_type = getattr(tc, "test_type", "positive")
+        if test_type in ("negative_auth_missing", "negative_auth_invalid"):
             continue
         tc_creds = SecurityResolver.resolve_credentials(tc.security, tc.security_schemes)
         for cred in tc_creds:

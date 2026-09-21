@@ -1,9 +1,9 @@
 # Implementation Tasks: Security-Scheme-Aware Authentication
 
-**Feature Branch**: `006-security-scheme-auth`  
-**Date**: 2026-09-20  
-**Spec**: [specs/006-security-scheme-auth/spec.md](file:///C:/Users/mwalc/source/repos/specprobe/specs/006-security-scheme-auth/spec.md)  
-**Plan**: [specs/006-security-scheme-auth/plan.md](file:///C:/Users/mwalc/source/repos/specprobe/specs/006-security-scheme-auth/plan.md)  
+**Feature Branch**: `006-security-scheme-auth`
+**Date**: 2026-09-20
+**Spec**: [specs/006-security-scheme-auth/spec.md](file:///C:/Users/mwalc/source/repos/specprobe/specs/006-security-scheme-auth/spec.md)
+**Plan**: [specs/006-security-scheme-auth/plan.md](file:///C:/Users/mwalc/source/repos/specprobe/specs/006-security-scheme-auth/plan.md)
 
 ---
 
@@ -50,7 +50,6 @@
 - [x] T010 [US1] Update `SYSTEM_PROMPT` and `PromptBuilder.build_user_prompt` in `src/specprobe/generator/prompt.py` to format active security requirements and instruct the model on credential placeholders (`<token>`, `<api_key>`, `<credentials>`)
 - [x] T011 [US1] Update `GenerationEngine._validate_completion` in `src/specprobe/generator/engine.py` to propagate `chunk.metadata.security` and `chunk.components.get("securitySchemes", {})` into `GeneratedTestCase.security` and `GeneratedTestCase.security_schemes`, ensuring the credential placeholder is present in `request.headers` or `request.query_params`
 
-
 **Checkpoint**: At this point, User Story 1 is fully functional and testable independently.
 
 ---
@@ -69,7 +68,6 @@
 
 - [x] T013 [US2] Update `_build_postman_item` in `src/specprobe/exporter/postman.py` to resolve credentials via `src/specprobe/exporter/security.py`, replacing credential values with `{{<sanitizedSchemeName>}}` placeholders in headers and query parameters
 - [x] T014 [US2] Update `generate_postman_collection` in `src/specprobe/exporter/postman.py` to aggregate all unique `ResolvedCredential` instances across test cases and append them to the collection's `variable` array (sorted alphabetically by `key` after `baseUrl`, with no duplicate declarations per `FR-010`)
-
 
 **Checkpoint**: At this point, User Stories 1 AND 2 both work independently.
 
@@ -90,7 +88,6 @@
 - [x] T016 [US3] Update `_build_request_block` in `src/specprobe/exporter/http_client.py` to resolve credentials via `src/specprobe/exporter/security.py` and replace credential headers and query parameters with `{{<sanitizedSchemeName>}}` references
 - [x] T017 [US3] Update `generate_http_document` in `src/specprobe/exporter/http_client.py` to aggregate all unique `ResolvedCredential` instances across test cases and declare them as top-level file variables (`@<sanitizedSchemeName> = <placeholder>`) directly below `@baseUrl` (sorted alphabetically, with zero duplicates per `FR-010`)
 
-
 **Checkpoint**: At this point, User Stories 1, 2, and 3 are independently functional.
 
 ---
@@ -110,7 +107,6 @@
 - [x] T019 [US4] Enhance `src/specprobe/exporter/security.py` to format documentation comment lines (`# Security: <scheme>`, `# Scopes: <scopes>`, `# Alternatives: <alts>`) and Postman description text for multi-scheme alternatives, compound requirements, and optional security (`FR-006`, `FR-009`, `FR-013`, `FR-014`)
 - [x] T020 [US4] Update `_build_request_block` in `src/specprobe/exporter/http_client.py` to inject `# Security: ...`, `# Scopes: ...`, and `# Alternatives: ...` comment lines directly above the request line
 - [x] T021 [US4] Update `_build_postman_item` in `src/specprobe/exporter/postman.py` to append security schemes, scopes, and alternatives metadata to `request.description`
-
 
 **Checkpoint**: All user stories are now fully implemented and testable.
 

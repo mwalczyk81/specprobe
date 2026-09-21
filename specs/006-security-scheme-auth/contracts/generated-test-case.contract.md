@@ -1,7 +1,7 @@
 # Contract: GeneratedTestCase JSONL Security Format
 
-**Target Interface**: `specprobe generate` output / `specprobe export` input  
-**Protocol**: JSON Lines (JSONL)  
+**Target Interface**: `specprobe generate` output / `specprobe export` input
+**Protocol**: JSON Lines (JSONL)
 
 ---
 
