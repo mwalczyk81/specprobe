@@ -39,11 +39,14 @@ def test_generate_from_file() -> None:
 
     assert result.exit_code == 0
     lines = [line.strip() for line in result.output.strip().split("\n") if line.strip()]
-    assert len(lines) == 2
+    # listPets is secured -> 3 test cases (positive, 401, 403);
+    # showPetById is unsecured -> 1 test case (positive)
+    assert len(lines) == 4
 
-    for line in lines:
-        tc = GeneratedTestCase.model_validate_json(line)
-        assert tc.response.status_code == 200
+    test_cases = [GeneratedTestCase.model_validate_json(line) for line in lines]
+    assert len([tc for tc in test_cases if tc.test_type == "positive"]) == 2
+    assert len([tc for tc in test_cases if tc.test_type == "negative_auth_missing"]) == 1
+    assert len([tc for tc in test_cases if tc.test_type == "negative_auth_invalid"]) == 1
 
 
 def test_generate_from_stdin_pipe() -> None:
@@ -67,7 +70,13 @@ def test_generate_from_stdin_pipe() -> None:
 
     assert result.exit_code == 0
     lines = [line.strip() for line in result.output.strip().split("\n") if line.strip()]
-    assert len(lines) == 2
+    # listPets is secured -> 3 test cases; showPetById is unsecured -> 1 test case
+    assert len(lines) == 4
+
+    test_cases = [GeneratedTestCase.model_validate_json(line) for line in lines]
+    assert len([tc for tc in test_cases if tc.test_type == "positive"]) == 2
+    assert len([tc for tc in test_cases if tc.test_type == "negative_auth_missing"]) == 1
+    assert len([tc for tc in test_cases if tc.test_type == "negative_auth_invalid"]) == 1
 
 
 def test_generate_rejects_compact_search_results() -> None:
@@ -173,13 +182,13 @@ def test_generate_partial_success_exits_code_0() -> None:
         result = runner.invoke(cli, ["generate", fixture_path, "--no-cache"])
 
     assert result.exit_code == 0
-    # Exactly one valid JSONL line in output
+    # listPets produces 3 test cases (happy path, 401, 403)
     valid_lines = [
         line
         for line in result.output.split("\n")
         if line.strip().startswith("{") and "listPets" in line
     ]
-    assert len(valid_lines) == 1
+    assert len(valid_lines) == 3
 
 
 def test_generate_cli_options_forwarding() -> None:
@@ -221,3 +230,64 @@ def test_generate_cli_options_forwarding() -> None:
     assert call_args["model"] == "openai/custom-local"
     assert call_args["api_base"] == "http://127.0.0.1:8080/v1"
     assert call_args["temperature"] == 0.7
+
+
+def test_generate_no_negative_auth_flag() -> None:
+    """Verify --no-negative-auth flag suppresses 401 and 403 negative test generation (T020)."""
+    runner = CliRunner()
+    fixture_path = "tests/fixtures/search_full_results.json"
+
+    mock_json = json.dumps(
+        {
+            "operation_id": "listPets",
+            "description": "Fetch pets successfully",
+            "request": {"path_params": {}, "query_params": {}, "headers": {}, "body": None},
+            "response": {"status_code": 200, "headers": {}, "schema_shape": None},
+            "tags": ["pets"],
+        }
+    )
+
+    with patch("litellm.completion", return_value=_mock_completion_response(mock_json)):
+        result = runner.invoke(
+            cli,
+            ["generate", fixture_path, "--no-cache", "--no-negative-auth"],
+        )
+
+    assert result.exit_code == 0
+    lines = [line.strip() for line in result.output.strip().split("\n") if line.strip()]
+    # When negative auth is disabled, only positive test cases are produced (2 total)
+    assert len(lines) == 2
+    for line in lines:
+        tc = GeneratedTestCase.model_validate_json(line)
+        assert tc.test_type == "positive"
+        assert tc.response.status_code == 200
+
+
+def test_generate_explicit_negative_auth_flag() -> None:
+    """Verify --negative-auth flag explicitly enables 401 and 403 generation."""
+    runner = CliRunner()
+    fixture_path = "tests/fixtures/search_full_results.json"
+
+    mock_json = json.dumps(
+        {
+            "operation_id": "listPets",
+            "description": "Fetch pets successfully",
+            "request": {"path_params": {}, "query_params": {}, "headers": {}, "body": None},
+            "response": {"status_code": 200, "headers": {}, "schema_shape": None},
+            "tags": ["pets"],
+        }
+    )
+
+    with patch("litellm.completion", return_value=_mock_completion_response(mock_json)):
+        result = runner.invoke(
+            cli,
+            ["generate", fixture_path, "--no-cache", "--negative-auth"],
+        )
+
+    assert result.exit_code == 0
+    lines = [line.strip() for line in result.output.strip().split("\n") if line.strip()]
+    assert len(lines) == 4
+    test_cases = [GeneratedTestCase.model_validate_json(line) for line in lines]
+    assert len([tc for tc in test_cases if tc.test_type == "positive"]) == 2
+    assert len([tc for tc in test_cases if tc.test_type == "negative_auth_missing"]) == 1
+    assert len([tc for tc in test_cases if tc.test_type == "negative_auth_invalid"]) == 1

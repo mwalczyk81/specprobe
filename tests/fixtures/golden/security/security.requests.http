@@ -18,6 +18,23 @@ Accept: application/json
 Authorization: Bearer {{bearerAuth}}
 
 ###
+# @name getBearerResource_401
+# Operation: getBearerResource
+# Description: [401] Missing authentication credentials - getBearerResource
+# Expected Status: 401
+GET {{baseUrl}}/bearer-endpoint HTTP/1.1
+Accept: application/json
+
+###
+# @name getBearerResource_403
+# Operation: getBearerResource
+# Description: [403] Invalid authentication credentials - getBearerResource
+# Expected Status: 403
+GET {{baseUrl}}/bearer-endpoint HTTP/1.1
+Accept: application/json
+Authorization: Bearer invalid_token
+
+###
 # @name getBasicResource
 # Operation: getBasicResource
 # Description: Verify HTTP Basic protected endpoint
@@ -27,6 +44,23 @@ Authorization: Bearer {{bearerAuth}}
 GET {{baseUrl}}/basic-endpoint HTTP/1.1
 Accept: application/json
 Authorization: Basic {{basicAuth}}
+
+###
+# @name getBasicResource_401
+# Operation: getBasicResource
+# Description: [401] Missing authentication credentials - getBasicResource
+# Expected Status: 401
+GET {{baseUrl}}/basic-endpoint HTTP/1.1
+Accept: application/json
+
+###
+# @name getBasicResource_403
+# Operation: getBasicResource
+# Description: [403] Invalid authentication credentials - getBasicResource
+# Expected Status: 403
+GET {{baseUrl}}/basic-endpoint HTTP/1.1
+Accept: application/json
+Authorization: Basic aW52YWxpZDppbnZhbGlk
 
 ###
 # @name postApiKeyHeaderResource
@@ -44,6 +78,31 @@ X-API-Key: {{apiKeyHeaderAuth}}
 }
 
 ###
+# @name postApiKeyHeaderResource_401
+# Operation: postApiKeyHeaderResource
+# Description: [401] Missing authentication credentials - postApiKeyHeaderResource
+# Expected Status: 401
+POST {{baseUrl}}/api-key-header-endpoint HTTP/1.1
+Content-Type: application/json
+
+{
+  "action": "test"
+}
+
+###
+# @name postApiKeyHeaderResource_403
+# Operation: postApiKeyHeaderResource
+# Description: [403] Invalid authentication credentials - postApiKeyHeaderResource
+# Expected Status: 403
+POST {{baseUrl}}/api-key-header-endpoint HTTP/1.1
+Content-Type: application/json
+X-API-Key: invalid_x_api_key
+
+{
+  "action": "test"
+}
+
+###
 # @name getApiKeyQueryResource
 # Operation: getApiKeyQueryResource
 # Description: Verify API key query parameter protected endpoint
@@ -51,6 +110,22 @@ X-API-Key: {{apiKeyHeaderAuth}}
 # Expected Schema: object (properties: items)
 # Security: apiKeyQueryAuth
 GET {{baseUrl}}/api-key-query-endpoint?limit=10&api_key={{apiKeyQueryAuth}} HTTP/1.1
+Accept: application/json
+
+###
+# @name getApiKeyQueryResource_401
+# Operation: getApiKeyQueryResource
+# Description: [401] Missing authentication credentials - getApiKeyQueryResource
+# Expected Status: 401
+GET {{baseUrl}}/api-key-query-endpoint?limit=10 HTTP/1.1
+Accept: application/json
+
+###
+# @name getApiKeyQueryResource_403
+# Operation: getApiKeyQueryResource
+# Description: [403] Invalid authentication credentials - getApiKeyQueryResource
+# Expected Status: 403
+GET {{baseUrl}}/api-key-query-endpoint?limit=10&api_key=invalid_api_key HTTP/1.1
 Accept: application/json
 
 ###
@@ -64,6 +139,23 @@ Accept: application/json
 GET {{baseUrl}}/oauth2-endpoint HTTP/1.1
 Accept: application/json
 Authorization: Bearer {{oauth2Auth}}
+
+###
+# @name getOAuth2Resource_401
+# Operation: getOAuth2Resource
+# Description: [401] Missing authentication credentials - getOAuth2Resource
+# Expected Status: 401
+GET {{baseUrl}}/oauth2-endpoint HTTP/1.1
+Accept: application/json
+
+###
+# @name getOAuth2Resource_403
+# Operation: getOAuth2Resource
+# Description: [403] Invalid authentication credentials - getOAuth2Resource
+# Expected Status: 403
+GET {{baseUrl}}/oauth2-endpoint HTTP/1.1
+Accept: application/json
+Authorization: Bearer invalid_token
 
 ###
 # @name getOptionalSecurityResource
@@ -89,6 +181,23 @@ Accept: application/json
 Authorization: Bearer {{bearerAuth}}
 
 ###
+# @name getMultiAlternativeResource_401
+# Operation: getMultiAlternativeResource
+# Description: [401] Missing authentication credentials - getMultiAlternativeResource
+# Expected Status: 401
+GET {{baseUrl}}/multi-alternative-endpoint HTTP/1.1
+Accept: application/json
+
+###
+# @name getMultiAlternativeResource_403
+# Operation: getMultiAlternativeResource
+# Description: [403] Invalid authentication credentials - getMultiAlternativeResource
+# Expected Status: 403
+GET {{baseUrl}}/multi-alternative-endpoint HTTP/1.1
+Accept: application/json
+Authorization: Bearer invalid_token
+
+###
 # @name postCompoundSecurityResource
 # Operation: postCompoundSecurityResource
 # Description: Verify compound security endpoint
@@ -100,6 +209,32 @@ POST {{baseUrl}}/compound-security-endpoint HTTP/1.1
 Content-Type: application/json
 X-API-Key: {{apiKeyHeaderAuth}}
 X-App-Id: {{appIdAuth}}
+
+{
+  "ping": "pong"
+}
+
+###
+# @name postCompoundSecurityResource_401
+# Operation: postCompoundSecurityResource
+# Description: [401] Missing authentication credentials - postCompoundSecurityResource
+# Expected Status: 401
+POST {{baseUrl}}/compound-security-endpoint HTTP/1.1
+Content-Type: application/json
+
+{
+  "ping": "pong"
+}
+
+###
+# @name postCompoundSecurityResource_403
+# Operation: postCompoundSecurityResource
+# Description: [403] Invalid authentication credentials - postCompoundSecurityResource
+# Expected Status: 403
+POST {{baseUrl}}/compound-security-endpoint HTTP/1.1
+Content-Type: application/json
+X-API-Key: invalid_x_api_key
+X-App-Id: <api_key>
 
 {
   "ping": "pong"

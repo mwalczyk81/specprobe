@@ -13,6 +13,7 @@ from specprobe.chunker.models import OperationChunk
 from specprobe.exporter.security import SecurityResolver
 from specprobe.generator.gateway import LLMGateway
 from specprobe.generator.models import GeneratedTestCase
+from specprobe.generator.negative_auth import generate_negative_auth_test_cases
 from specprobe.generator.prompt import (
     PromptBuilder,
     clean_markdown_fences,
@@ -299,6 +300,7 @@ class GenerationEngine:
         stream_stdout: bool = True,
         out_stream: Any = None,
         err_stream: Any = None,
+        negative_auth: bool = True,
     ) -> BatchResult:
         """Process a batch of operation chunks, isolating per-operation failures.
 
@@ -312,6 +314,9 @@ class GenerationEngine:
             Output stream for validated test cases (defaults to sys.stdout).
         err_stream : Any | None
             Error stream for diagnostic messages (defaults to sys.stderr).
+        negative_auth : bool
+            Whether to automatically generate 401 and 403 negative authentication
+            test cases for secured operations (defaults to True).
 
         Returns
         -------
@@ -334,6 +339,14 @@ class GenerationEngine:
                     out_stream.flush()
                 result.test_cases.append(test_case)
                 result.succeeded += 1
+
+                if negative_auth:
+                    neg_cases = generate_negative_auth_test_cases(test_case, chunk)
+                    for neg_tc in neg_cases:
+                        if stream_stdout:
+                            out_stream.write(neg_tc.model_dump_json() + "\n")
+                            out_stream.flush()
+                        result.test_cases.append(neg_tc)
             except Exception as exc:
                 err_stream.write(f"Validation failed for operation '{op_id}': {exc}\n")
                 err_stream.flush()

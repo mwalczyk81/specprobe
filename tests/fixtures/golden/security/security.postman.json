@@ -105,6 +105,83 @@
               }
             }
           ]
+        },
+        {
+          "name": "[401] Missing authentication credentials - getBearerResource",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/bearer-endpoint",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "bearer-endpoint"
+              ]
+            },
+            "description": "Operation: getBearerResource\n\n[401] Missing authentication credentials - getBearerResource"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[403] Invalid authentication credentials - getBearerResource",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer invalid_token",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/bearer-endpoint",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "bearer-endpoint"
+              ]
+            },
+            "description": "Operation: getBearerResource\n\n[403] Invalid authentication credentials - getBearerResource"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -165,6 +242,83 @@
                   "        \"type\": \"object\"",
                   "    };",
                   "    pm.response.to.have.jsonSchema(schema);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[401] Missing authentication credentials - getBasicResource",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/basic-endpoint",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "basic-endpoint"
+              ]
+            },
+            "description": "Operation: getBasicResource\n\n[401] Missing authentication credentials - getBasicResource"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[403] Invalid authentication credentials - getBasicResource",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Basic aW52YWxpZDppbnZhbGlk",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/basic-endpoint",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "basic-endpoint"
+              ]
+            },
+            "description": "Operation: getBasicResource\n\n[403] Invalid authentication credentials - getBasicResource"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
                   "});"
                 ]
               }
@@ -246,6 +400,101 @@
           ]
         },
         {
+          "name": "[401] Missing authentication credentials - postApiKeyHeaderResource",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api-key-header-endpoint",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api-key-header-endpoint"
+              ]
+            },
+            "description": "Operation: postApiKeyHeaderResource\n\n[401] Missing authentication credentials - postApiKeyHeaderResource",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[403] Invalid authentication credentials - postApiKeyHeaderResource",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "invalid_x_api_key",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api-key-header-endpoint",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api-key-header-endpoint"
+              ]
+            },
+            "description": "Operation: postApiKeyHeaderResource\n\n[403] Invalid authentication credentials - postApiKeyHeaderResource",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Verify API key query parameter protected endpoint",
           "request": {
             "method": "GET",
@@ -307,6 +556,94 @@
                   "        \"type\": \"object\"",
                   "    };",
                   "    pm.response.to.have.jsonSchema(schema);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[401] Missing authentication credentials - getApiKeyQueryResource",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api-key-query-endpoint?limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api-key-query-endpoint"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Operation: getApiKeyQueryResource\n\n[401] Missing authentication credentials - getApiKeyQueryResource"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[403] Invalid authentication credentials - getApiKeyQueryResource",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api-key-query-endpoint?limit=10&api_key=invalid_api_key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api-key-query-endpoint"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "api_key",
+                  "value": "invalid_api_key"
+                }
+              ]
+            },
+            "description": "Operation: getApiKeyQueryResource\n\n[403] Invalid authentication credentials - getApiKeyQueryResource"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
                   "});"
                 ]
               }
@@ -375,6 +712,83 @@
                   "        \"type\": \"object\"",
                   "    };",
                   "    pm.response.to.have.jsonSchema(schema);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[401] Missing authentication credentials - getOAuth2Resource",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/oauth2-endpoint",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "oauth2-endpoint"
+              ]
+            },
+            "description": "Operation: getOAuth2Resource\n\n[401] Missing authentication credentials - getOAuth2Resource"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[403] Invalid authentication credentials - getOAuth2Resource",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer invalid_token",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/oauth2-endpoint",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "oauth2-endpoint"
+              ]
+            },
+            "description": "Operation: getOAuth2Resource\n\n[403] Invalid authentication credentials - getOAuth2Resource"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
                   "});"
                 ]
               }
@@ -510,6 +924,83 @@
               }
             }
           ]
+        },
+        {
+          "name": "[401] Missing authentication credentials - getMultiAlternativeResource",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/multi-alternative-endpoint",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "multi-alternative-endpoint"
+              ]
+            },
+            "description": "Operation: getMultiAlternativeResource\n\n[401] Missing authentication credentials - getMultiAlternativeResource"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[403] Invalid authentication credentials - getMultiAlternativeResource",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer invalid_token",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/multi-alternative-endpoint",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "multi-alternative-endpoint"
+              ]
+            },
+            "description": "Operation: getMultiAlternativeResource\n\n[403] Invalid authentication credentials - getMultiAlternativeResource"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -584,6 +1075,106 @@
                   "        \"type\": \"object\"",
                   "    };",
                   "    pm.response.to.have.jsonSchema(schema);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[401] Missing authentication credentials - postCompoundSecurityResource",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/compound-security-endpoint",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "compound-security-endpoint"
+              ]
+            },
+            "description": "Operation: postCompoundSecurityResource\n\n[401] Missing authentication credentials - postCompoundSecurityResource",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ping\": \"pong\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[403] Invalid authentication credentials - postCompoundSecurityResource",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "invalid_x_api_key",
+                "type": "text"
+              },
+              {
+                "key": "X-App-Id",
+                "value": "<api_key>",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/compound-security-endpoint",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "compound-security-endpoint"
+              ]
+            },
+            "description": "Operation: postCompoundSecurityResource\n\n[403] Invalid authentication credentials - postCompoundSecurityResource",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ping\": \"pong\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
                   "});"
                 ]
               }

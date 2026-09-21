@@ -202,7 +202,8 @@ def test_pipeline_filter_search_piped_to_generate(tmp_path: Path) -> None:
 
     assert gen_res.exit_code == 0
     lines = [line.strip() for line in gen_res.output.strip().split("\n") if line.strip()]
-    assert len(lines) == 4
+    # 4 operations: 3 secured -> 9 test cases; 1 unsecured -> 1 test case. Total: 10 test cases
+    assert len(lines) == 10
 
     generated_cases = [GeneratedTestCase.model_validate_json(line) for line in lines]
     op_ids = {tc.operation_id for tc in generated_cases}

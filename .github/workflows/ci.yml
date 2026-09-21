@@ -8,6 +8,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      code-quality: write
     strategy:
       matrix:
         python-version: ["3.11", "3.12"]
@@ -32,5 +35,18 @@ jobs:
       - name: Type check (ty)
         run: uv run ty check src/
 
-      - name: Test (pytest)
-        run: uv run pytest
+      - name: Test with coverage
+        run: uv run pytest --cov=src --cov-report=xml --cov-report=term
+
+      - name: Upload coverage report
+        uses: actions/upload-code-coverage@v1
+        with:
+          file: coverage.xml
+          language: python
+          fail-on-error: false
+
+      - name: Archive coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.python-version }}
+          path: coverage.xml

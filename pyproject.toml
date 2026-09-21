@@ -30,6 +30,7 @@ dev = [
     "hypothesis>=6.168.0",
     "pre-commit>=4.6.2",
     "pytest>=8.0.0",
+    "pytest-cov>=7.1.0",
     "ruff>=0.16.8",
     "ty>=0.0.82",
 ]
