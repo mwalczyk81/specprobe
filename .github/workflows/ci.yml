@@ -36,10 +36,17 @@ jobs:
         run: uv run ty check src/
 
       - name: Test with coverage
-        run: uv run pytest --cov=src --cov-report=xml
+        run: uv run pytest --cov=src --cov-report=xml --cov-report=term
 
       - name: Upload coverage report
         uses: actions/upload-code-coverage@v1
         with:
           file: coverage.xml
           language: python
+          fail-on-error: false
+
+      - name: Archive coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.python-version }}
+          path: coverage.xml
