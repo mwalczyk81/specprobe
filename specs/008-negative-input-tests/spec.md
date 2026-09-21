@@ -8,6 +8,15 @@
 
 **Input**: User description: "User Story 1 — Not-found (404): For operations with a path parameter identifying a specific resource (GET/PUT/PATCH/DELETE /pets/{petId}), generate a test case that mutates the happy-path request's path parameter to reference a resource that plausibly doesn't exist (out-of-range ID, or a syntactically-valid-but-nonexistent value matching the parameter's schema type/format), keeping everything else unchanged — same headers, same valid credentials, since this tests resource lookup, not auth. Assert status_code == 404. Reuse the test_type discriminator (add negative_not_found) and the 007 exporter scaffolding directly: sibling item, [404] prefix in Postman, # @name <op>_404 / # Expected Status: 404 in REST Client. Skip operations with no path parameters — there's nothing to mutate. User Story 2 — Invalid-input (400): For operations with a request body governed by a schema, generate a test case with a body that violates that schema in a minimal, deterministic way (omit one required field, or violate one field's declared type/format) and assert status_code == 400. This needs a schema-aware mutation step — inspecting required/properties/type on the operation's request schema, not just swapping a parameter value like 404 does. Add test_type = negative_invalid_input. Same exporter treatment: sibling item, [400] prefix / # @name <op>_400. Skip operations with no request body or no schema-constrained body — there's nothing to violate. Both default to enabled, consistent with 007's --negative-auth pattern — pick flag names that fit alongside --negative-auth/--no-negative-auth (e.g. --not-found/--no-not-found, --invalid-input/--no-invalid-input), and raise it as a clarification question if there's ambiguity about whether these should be one combined flag or two independent ones. Stay zero-LLM/deterministic for both — this is schema/parameter mutation, not something requiring judgment."
 
+## Clarifications
+
+### Session 2026-09-20
+
+- Q: For operations that accept a request body with multiple required fields, should SpecProbe generate a single 400 test case or generate one 400 test case per required field? → A: Generate a single 400 test case per operation by omitting the first required field (or mutating the first property type if no required fields exist).
+- Q: When an operation defines multiple path parameters in its route (e.g., /orgs/{orgId}/projects/{projectId}/items/{itemId}), which path parameter should be mutated to generate the 404 Not Found test case? → A: Mutate only the leaf (last declared in path) parameter, keeping all ancestor/parent parameter values valid.
+- Q: Should schema-aware 400 invalid-input test generation only apply to JSON request bodies, or should it also mutate non-JSON media types? → A: Target only JSON request bodies (application/json, application/*+json), skipping non-JSON payloads.
+
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Deterministic 404 Not-Found Test Generation (Priority: P1)
@@ -82,18 +91,18 @@ So that I can selectively enable negative test coverage in CI/CD and inspect all
 ### Functional Requirements
 
 - **FR-001**: System MUST extend `GeneratedTestCase.test_type` to include `negative_not_found` and `negative_invalid_input` alongside existing `positive`, `negative_auth_missing`, and `negative_auth_invalid` types.
-- **FR-002**: System MUST deterministically generate a 404 Not Found test case (`negative_not_found`) for any operation defining at least one path parameter, mutating the path parameter value to a nonexistent representation while keeping all headers, credentials, and body fixtures identical to the positive test case.
+- **FR-002**: System MUST deterministically generate a 404 Not Found test case (`negative_not_found`) for any operation defining at least one path parameter, mutating exactly the leaf (last in path template) parameter to a nonexistent representation while keeping all ancestor path parameters, headers, credentials, and body fixtures identical to the positive test case.
 - **FR-003**: System MUST mutate path parameters based on parameter schema type:
   - Integer / Number: Out-of-range positive sentinel value (e.g., `999999` or `2147483647`).
   - String with UUID format: Formatted nil UUID (`"00000000-0000-0000-0000-000000000000"`).
   - String with general format or unformatted: Syntactically valid non-existent slug (e.g., `"specprobe-nonexistent-id"`).
 - **FR-004**: System MUST skip 404 test case generation for operations that declare no path parameters.
-- **FR-005**: System MUST deterministically generate a 400 Bad Request test case (`negative_invalid_input`) for any operation defining a schema-constrained request body, mutating the payload to violate the schema while keeping path parameters, query parameters, headers, and credentials identical to the positive test case.
-- **FR-006**: System MUST mutate request bodies using a minimal violation strategy:
-  - If the schema defines `required` properties: omit exactly one required property (the first required field found).
-  - If the schema defines `properties` but no `required` fields: replace one property value with a contradictory type (e.g., replace string with boolean or array).
+- **FR-005**: System MUST deterministically generate a 400 Bad Request test case (`negative_invalid_input`) for any operation defining a schema-constrained JSON request body (`application/json` or `application/*+json`), mutating the payload to violate the schema while keeping path parameters, query parameters, headers, and credentials identical to the positive test case.
+- **FR-006**: System MUST mutate request bodies to produce exactly ONE 400 test case per operation using a minimal violation strategy:
+  - If the schema defines `required` properties: omit exactly one required property (the first required field in schema order).
+  - If the schema defines `properties` but no `required` fields: replace the first declared property value with a contradictory type (e.g., replace string with boolean or array).
   - If the schema is an array type: supply an object or primitive instead of an array.
-- **FR-007**: System MUST skip 400 test case generation for operations that have no request body or whose request body has no defined schema properties/constraints.
+- **FR-007**: System MUST skip 400 test case generation for operations that have no request body, non-JSON request bodies, or whose request body has no defined schema properties/constraints.
 - **FR-008**: System MUST support independent boolean CLI flag pairs on `specprobe generate`:
   - `--not-found` / `--no-not-found`: Controls 404 not-found test case generation (default: enabled).
   - `--invalid-input` / `--no-invalid-input`: Controls 400 invalid-input test case generation (default: enabled).
