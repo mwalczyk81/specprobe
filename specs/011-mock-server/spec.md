@@ -15,6 +15,9 @@
 - Q: What is the scope of mock responses in v1? → A: Serve positive cases only (`test_type == "positive"` or 2xx status codes). Any request matching a registered route returns its recorded positive canned response. Negative condition matching is out of scope for v1.
 - Q: How should response bodies be produced when test case records specify `schema_shape` without an explicit concrete body? → A: Deterministically synthesize a minimal valid JSON body from `schema_shape` (generating sample values based on schema types: strings, numbers, booleans, objects, arrays) so that Postman's `pm.response.to.have.jsonSchema(...)` assertions pass, while honoring explicit `response.body` if present in fixtures. Empty body for 204 or null schemas.
 - Q: How should `specprobe mock` accept input test cases? → A: Accept a positional file path argument (`specprobe mock <test_cases_file>`) and support standard input via `-` (e.g., `specprobe generate ... | specprobe mock -`), buffering all JSONL lines before binding the socket and entering the server event loop.
+- Q: Should incoming request matching evaluate only the HTTP method and resolved path, ignoring incoming request headers and body payloads? → A: Match strictly on HTTP method and path; ignore incoming request headers, query parameters, and request body.
+- Q: How should the mock server handle trailing slashes when matching incoming request paths against registered routes? → A: Normalize paths by stripping trailing slashes (except root `/`) so `/pets` and `/pets/` match the same route.
+- Q: What format should the mock server use for logging incoming HTTP requests during foreground execution? → A: Concise single-line access log per request (timestamp, method, path, status code, latency), with 404s flagged.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -75,6 +78,8 @@ When an incoming HTTP request does not match any registered method or endpoint p
 - **How should test cases be supplied to the command?** The CLI accepts a positional file path argument (`specprobe mock <test_cases_file>`) or standard input when `-` is specified (e.g., `specprobe generate ... | specprobe mock -`). When reading stdin, all records are buffered into memory before starting the server.
 - **What happens if multiple test fixtures exist for the exact same HTTP method and resolved path?** The mock server uses the first matching fixture encountered in the test cases file and logs an informational warning during startup.
 - **What happens if the input test cases file is empty or contains malformed JSONL?** The mock server exits immediately with an error message on `stderr` describing the invalid or empty file and a non-zero exit code.
+- **What happens if an incoming request contains extra or differing headers, query parameters, or request body?** The mock server evaluates only the HTTP method and normalized path, ignoring incoming headers, query parameters, and body payloads so client-specific headers (e.g. User-Agent or custom client tokens) do not cause false route mismatches.
+- **What happens if an incoming request path has a trailing slash (e.g. `/pets/`) when the fixture path does not (or vice versa)?** The server normalizes all paths by stripping trailing slashes (except the root `/`), allowing `/pets` and `/pets/` to resolve to the same mock route.
 - **What happens if a parameterized path contains URL-encoded characters or multiple segments?** The server normalizes URL paths and matches concrete resolved path parameter values as recorded in the fixture's parameters.
 
 ## Requirements *(mandatory)*
@@ -82,7 +87,7 @@ When an incoming HTTP request does not match any registered method or endpoint p
 ### Functional Requirements
 
 - **FR-001**: System MUST provide a `specprobe mock` CLI command that accepts a test cases file path or standard input (`-`) and starts a local HTTP mock server serving canned responses derived from generated test case records.
-- **FR-002**: System MUST match incoming HTTP requests by HTTP method and URL path against recorded test case fixtures with path parameters resolved.
+- **FR-002**: System MUST match incoming HTTP requests strictly by HTTP method and normalized URL path (stripping trailing slashes except for root `/`, and ignoring incoming request headers, query parameters, and request body payloads) against recorded test case fixtures with path parameters resolved.
 - **FR-003**: System MUST return the recorded HTTP status code, response headers, and response body corresponding to the matched test case. When a test case does not include an explicit response body, the system MUST deterministically synthesize a minimal valid JSON payload satisfying the recorded `schema_shape`.
 - **FR-004**: System MUST support configurable server listening options, including `--port` (defaulting to 8000) and `--host` (defaulting to `localhost` / `127.0.0.1`).
 - **FR-005**: System MUST run in the foreground as an interactive blocking process and shut down cleanly upon receiving an interrupt signal (SIGINT / Ctrl+C), releasing all network sockets.
@@ -93,6 +98,7 @@ When an incoming HTTP request does not match any registered method or endpoint p
 - **FR-010**: System MUST handle HTTP 204 No Content responses by returning status code 204 with an empty body and appropriate headers.
 - **FR-011**: System MUST fail fast with a descriptive error message on `stderr` and a non-zero exit code if the specified test cases file does not exist, cannot be read, contains malformed JSONL, or if the specified network port is unavailable.
 - **FR-012**: System MUST filter test cases during loading to include only positive test cases (`test_type == "positive"` or 2xx status codes), ignoring negative test cases (401/403/404/400) for v1 route matching.
+- **FR-013**: System MUST output a concise single-line access log for each incoming HTTP request during foreground execution, including timestamp, HTTP method, requested path, returned status code, and request processing latency, highlighting unmatched 404/405 responses.
 
 ### Key Entities *(include if feature involves data)*
 
