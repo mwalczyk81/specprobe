@@ -1,5 +1,8 @@
 # specprobe
 
+[![CI](https://github.com/mwalczyk81/specprobe/actions/workflows/ci.yml/badge.svg)](https://github.com/mwalczyk81/specprobe/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/mwalczyk81/specprobe/graph/badge.svg)](https://codecov.io/gh/mwalczyk81/specprobe)
+
 A CLI that turns an OpenAPI spec into a searchable, locally-indexed knowledge base and generates schema-validated API test cases from it — no cloud calls required unless you opt in.
 
 ```
