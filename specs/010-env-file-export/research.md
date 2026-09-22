@@ -1,7 +1,7 @@
 # Research & Technical Decisions: Environment File Export
 
-**Feature Branch**: `010-env-file-export`  
-**Date**: 2026-09-21  
+**Feature Branch**: `010-env-file-export`
+**Date**: 2026-09-21
 **Spec**: [spec.md](file:///C:/Users/mwalc/source/repos/specprobe/specs/010-env-file-export/spec.md)
 
 ---

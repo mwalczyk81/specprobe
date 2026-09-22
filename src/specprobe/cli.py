@@ -30,6 +30,9 @@ from specprobe.exporter.models import ExportConfig, ExportEnvironment, ExportFor
 from specprobe.formatters.jsonl import stream_chunks_as_jsonl
 from specprobe.generator.gateway import LLMGateway
 from specprobe.index.store import QdrantIndexStore, index_chunk_stream
+from specprobe.mock.models import MockServerConfig
+from specprobe.mock.router import MockRouter
+from specprobe.mock.server import MockServer
 
 # Disable Hugging Face and tqdm progress bars so CLI stdout/stderr streams remain pure JSON
 os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
@@ -829,6 +832,73 @@ def audit_command(
         sys.exit(1)
 
     sys.exit(0)
+
+
+@cli.command("mock")
+@click.argument(
+    "test_cases_file",
+    required=False,
+    type=click.Path(dir_okay=False, allow_dash=True, path_type=Path),
+)
+@click.option(
+    "--port",
+    "-p",
+    type=click.IntRange(1, 65535),
+    default=8000,
+    show_default=True,
+    help="Port to bind the HTTP mock server to.",
+)
+@click.option(
+    "--host",
+    "-h",
+    type=str,
+    default="127.0.0.1",
+    show_default=True,
+    help="Network interface / host to bind to.",
+)
+def mock_command(test_cases_file: Path | None, port: int, host: str) -> None:
+    """Launch a local HTTP mock server serving canned responses from positive
+    GeneratedTestCase fixtures.
+    """
+    if test_cases_file is None and sys.stdin.isatty():
+        click.echo(
+            "Error: No test cases provided. Pass a file argument or pipe JSONL via stdin.",
+            err=True,
+        )
+        sys.exit(1)
+
+    source_label = str(test_cases_file) if test_cases_file else "stdin"
+
+    try:
+        test_cases = read_test_cases(test_cases_file)
+    except FileNotFoundError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+    except ValueError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+    except Exception as exc:
+        click.echo(f"Error reading test cases: {exc}", err=True)
+        sys.exit(1)
+
+    router = MockRouter()
+    router.load_test_cases(test_cases)
+
+    if not router.routes:
+        click.echo(f"Error: No valid positive test cases found in '{source_label}'.", err=True)
+        sys.exit(1)
+
+    config = MockServerConfig(host=host, port=port, input_source=test_cases_file or "-")
+
+    try:
+        server = MockServer(config, router)
+    except OSError as exc:
+        click.echo(f"Error: Failed to bind port {port} on {host}: {exc}", err=True)
+        sys.exit(1)
+
+    server.print_startup_banner(source_label)
+    exit_code = server.serve_until_interrupted()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":
