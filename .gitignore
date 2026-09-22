@@ -219,3 +219,6 @@ __marimo__/
 
 # SpecProbe local storage and vector indexes
 .specprobe/
+
+# Claude local workspace and worktrees
+.claude/

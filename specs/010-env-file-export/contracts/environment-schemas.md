@@ -1,7 +1,7 @@
 # Environment Schemas Contract
 
-**Feature Branch**: `010-env-file-export`  
-**Date**: 2026-09-21  
+**Feature Branch**: `010-env-file-export`
+**Date**: 2026-09-21
 **Spec**: [spec.md](file:///C:/Users/mwalc/source/repos/specprobe/specs/010-env-file-export/spec.md)
 
 ---
@@ -9,7 +9,7 @@
 ## 1. Postman Environment v2.1 Schema
 
 ### File Naming Convention
-`<sanitized_env_name>.postman_environment.json`  
+`<sanitized_env_name>.postman_environment.json`
 (e.g., `local.postman_environment.json`, `staging.postman_environment.json`)
 
 ### Structure Definition
