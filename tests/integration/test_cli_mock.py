@@ -105,7 +105,15 @@ def test_cli_mock_stdin_streaming() -> None:
             assert resp.status == 200
     finally:
         proc.terminate()
-        proc.communicate(timeout=5)
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+        if proc.stdout is not None:
+            proc.stdout.close()
+        if proc.stderr is not None:
+            proc.stderr.close()
 
 
 def test_cli_mock_404_diagnostic(spawn_mock_server) -> None:
