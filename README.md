@@ -3,11 +3,13 @@
 [![CI](https://github.com/mwalczyk81/specprobe/actions/workflows/ci.yml/badge.svg)](https://github.com/mwalczyk81/specprobe/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/mwalczyk81/specprobe/graph/badge.svg)](https://codecov.io/gh/mwalczyk81/specprobe)
 
-A CLI that turns an OpenAPI spec into a searchable, locally-indexed knowledge base and generates schema-validated API test cases from it — no cloud calls required unless you opt in.
+A CLI that turns an OpenAPI spec into a searchable, locally-indexed knowledge base, generates schema-validated API test cases from it, exports runnable test suites with environment configs, and spins up a local mock server to validate them against — no cloud calls required unless you opt in.
 
 ```
-spec.yaml → chunk → index → search → generate → export
-           (parse)  (embed)  (retrieve)  (LLM + validate)  (runnable artifacts)
+spec.yaml ──→ chunk ──→ index ──→ search ──→ generate ──→ export ──→ run / mock
+             (parse)   (embed)   (retrieve)  (LLM + validate)  (artifacts & envs)   (local test server)
+                                                    │
+                                                    └───→ audit (spec vs artifact gap analysis)
 ```
 
 ## What it does
@@ -20,7 +22,9 @@ spec.yaml → chunk → index → search → generate → export
 
 **`generate`** — Takes `search --full` output and asks an LLM to produce a happy-path test case per operation: concrete request fixtures, expected status/headers, and a schema-shape assertion (hardened to valid JSON Schema Draft 7). Generates negative test cases by default: authentication negatives (401 missing credentials and 403 protocol-valid invalid credentials for secured operations, controlled by `--negative-auth`/`--no-negative-auth`), 404 resource-not-found negatives (mutating leaf path parameters to nonexistent sentinels, controlled by `--not-found`/`--no-not-found`), and 400 invalid-input negatives (minimal schema-violating body mutations for JSON-body-constrained operations, controlled by `--invalid-input`/`--no-invalid-input`). All negative flags default to enabled. Every output is validated against a strict Pydantic schema; a validation failure triggers exactly one self-correcting retry with the error fed back to the model, then the operation is marked failed and the batch continues. Calls are cached to disk (SHA-256 of messages + model + temperature) so repeat runs and CI are zero-cost and don't need a live model.
 
-**`export`** — Deterministically transforms `GeneratedTestCase` JSONL records into runnable test artifacts: Postman Collection v2.1 JSON (with primary tag folders and embedded `pm.test` assertions) and VS Code REST Client `.http` files (with `###` request blocks and metadata documentation). Deterministically parameterizes security credentials into collection/file variables (`{{schemeName}}` / `@schemeName`). Serializes negative test cases as sibling items (`[401]`, `[403]`, `[404]`, and `[400]` item prefixes in Postman; `# @name <op>_401`, `_403`, `_404`, `_400` in REST Client) with matching status assertions; unlike 401/403 (which use inline invalid literals and are excluded from variable parameterization), 404 and 400 test cases retain full credential parameterization since they assert resource lookup and input validation rather than authentication. Strictly zero-LLM, zero-network, and 100% byte-identical across runs per Constitution Principle II.
+**`export`** — Deterministically transforms `GeneratedTestCase` JSONL records into runnable test artifacts: Postman Collection v2.1 JSON (with primary tag folders and embedded `pm.test` assertions) and VS Code REST Client `.http` files (with `###` request blocks and metadata documentation). Exports native multi-environment configuration files (`<env>.postman_environment.json` per Postman Environment v2.1 schema with deterministic UUIDv5, and `http-client.env.json` for REST Client) via repeatable `--env <name>=<url>` options or `--env-file <path>` (supporting JSON and YAML). Replaces hardcoded URLs with dynamic `{{baseUrl}}` references and extracts security credentials into environment variables (`{{schemeName}}` / `@schemeName`). Serializes negative test cases as sibling items (`[401]`, `[403]`, `[404]`, and `[400]` item prefixes in Postman; `# @name <op>_401`, `_403`, `_404`, `_400` in REST Client) with matching status assertions; unlike 401/403 (which use inline invalid literals and are excluded from variable parameterization), 404 and 400 test cases retain full credential parameterization since they assert resource lookup and input validation rather than authentication. Strictly zero-LLM, zero-network, and 100% byte-identical across runs per Constitution Principle II.
+
+**`mock`** — Launches a lightweight, local, multi-threaded HTTP mock server (`http.server.ThreadingHTTPServer`) backed by positive `GeneratedTestCase` fixtures (passed via file argument or piped from stdin). Matches incoming HTTP requests against templated route paths with dynamic path parameter extraction (e.g. `/pets/123` resolves to `/pets/{petId}`), normalizes trailing slashes, and returns canned status codes and headers. When a test case defines a Draft 7 JSON Schema shape (`response.schema_shape`), the mock server uses an in-memory schema synthesizer to dynamically emit valid sample JSON payloads matching the schema (types, properties, required fields, nested objects, arrays, and enums) so exported Postman tests pass their `pm.response.to.have.jsonSchema(...)` assertions out of the box. Features a rich terminal startup banner, detailed access logging, and helpful 404/405 diagnostic error bodies listing available routes and allowed methods.
 
 **`audit`** — Compares an OpenAPI spec against an existing test artifact (Postman collection or `.http` file) for coverage gap analysis, via a hybrid pipeline (deterministic structural diff + per-operation LLM critique through the same LiteLLM gateway), streaming JSONL critique records to stdout with an optional `--summary` human-readable table.
 
@@ -61,16 +65,24 @@ uv run specprobe search "cancel a pending order" --full --limit 3 \
 uv run specprobe search --source-title "Petstore API" --full \
   | uv run specprobe generate
 
-# 6. Export test cases to runnable Postman collection and REST Client .http files
+# 6. Export test cases to runnable Postman collection, REST Client .http files, and environment configs
 uv run specprobe search --source-title "Petstore API" --full \
   | uv run specprobe generate \
-  | uv run specprobe export --format both --output ./exported_tests
+  | uv run specprobe export --format both --output ./exported_tests \
+      --env local=http://127.0.0.1:8000 --env staging=https://staging.example.com
 
-# 7. Audit an existing test artifact against the spec for coverage gaps
+# 7. Start the local mock server to validate the exported test suite against
+uv run specprobe mock ./exported_tests/cases.jsonl --port 8000
+# Or pipe directly from generation without intermediate files:
+# uv run specprobe search --source-title "Petstore API" --full \
+#   | uv run specprobe generate \
+#   | uv run specprobe mock --port 8000
+
+# 8. Audit an existing test artifact against the spec for coverage gaps
 uv run specprobe audit ./exported_tests/collection.json --spec petstore.yaml --summary
 ```
 
-`generate` streams one JSON Lines object per successful test case to stdout and per-operation error diagnostics to stderr, which can be piped directly into `export` to produce runnable test artifacts without intermediate files.
+`generate` streams one JSON Lines object per successful test case to stdout and per-operation error diagnostics to stderr, which can be piped directly into `export` or `mock` to produce runnable test artifacts or spin up a local mock server without intermediate files.
 
 ## CLI reference
 
@@ -80,7 +92,8 @@ uv run specprobe audit ./exported_tests/collection.json --spec petstore.yaml --s
 | `index [chunk_file]` | Ingest chunks into the vector store (file arg or stdin) | `--index-dir`, `--stats` (collection health/counts) |
 | `search [query]` | Natural-language retrieval or unranked filter-only spec extraction | `--mode {dense,hybrid,hybrid-rerank}`, `-n/--limit`, `--tag`, `--method`, `--deprecated/--no-deprecated`, `--source-title`, `--source-version`, `--full` |
 | `generate [results_file]` | LLM test-case generation from search results (file arg or stdin) | `--model`, `--api-base`, `--temperature`, `--cache-dir`, `--no-cache`, `--negative-auth/--no-negative-auth`, `--not-found/--no-not-found`, `--invalid-input/--no-invalid-input` |
-| `export [test_cases_file]` | Transform generated test cases into runnable Postman or REST Client artifacts (file arg or stdin) | `--format {both,postman,http}`, `-o/--output <path/dir>`, `--collection-name <name>`, `--base-url <url>` |
+| `export [test_cases_file]` | Transform generated test cases into runnable Postman or REST Client artifacts (file arg or stdin) | `--format {both,postman,http}`, `-o/--output <path/dir>`, `--collection-name <name>`, `--base-url <url>`, `--env <name>=<url>`, `--env-file <path>` |
+| `mock [test_cases_file]` | Run a local multi-threaded HTTP mock server serving canned test cases and synthesized JSON schemas (file arg or stdin) | `-p/--port <port>`, `-h/--host <host>` |
 | `audit [artifact_file]` | Compare a spec against test artifacts for coverage gaps (file arg or stdin) | `--index-dir`, `--spec`, `--summary`, `--no-cache`, `--cache-dir`, `--model`, `--api-base` |
 
 When `search` is called without a `<query>`, it operates in filter-only mode: all operations matching the provided metadata filter(s) are retrieved unranked (`score: 0.0`) with unlimited pagination by default (or respecting explicit `-n/--limit`). Either `<query>` or at least one metadata filter must be provided.
@@ -111,9 +124,11 @@ Omitting the required environment variable fails fast with an explanatory error 
 ## Development
 
 ```bash
-uv run pytest          # full suite
-uv run ruff check .    # lint
-uv run ruff format .   # format
+uv run pytest                      # full test suite (unit, integration, property tests)
+uv run ty check src/               # static type checking
+uv run ruff check .                # lint
+uv run ruff format --check .       # format check
+uv run pre-commit run --all-files  # git hooks validation
 ```
 
 Feature work follows a spec-first workflow — see `specs/` for the spec, plan, and task breakdown behind each feature, and `.specify/memory/constitution.md` for the constraints every change is checked against.
@@ -124,11 +139,12 @@ Feature work follows a spec-first workflow — see `specs/` for the spec, plan, 
 src/specprobe/
 ├── audit/       # Spec-vs-artifact coverage gap analysis and LLM critique
 ├── chunker/     # OpenAPI parsing, schema pruning, token estimation
-├── index/       # FastEmbed embedding + Qdrant storage
-├── search/      # Multi-mode retrieval engine
-├── generator/   # LLM gateway, prompt synthesis, validation/retry, disk cache
-├── exporter/    # Deterministic Postman and REST Client artifact serializers
+├── exporter/    # Deterministic Postman and REST Client artifact & environment serializers
 ├── formatters/  # Output serialization (JSONL, etc.)
+├── generator/   # LLM gateway, prompt synthesis, validation/retry, disk cache
+├── index/       # FastEmbed embedding + Qdrant storage
+├── mock/        # Local HTTP mock server, route matching, schema synthesizer
+├── search/      # Multi-mode retrieval engine
 ├── models.py    # Shared Pydantic models
 └── cli.py       # Click command group
 ```
