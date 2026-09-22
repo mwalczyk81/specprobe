@@ -6,7 +6,11 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from specprobe.exporter.http_client import generate_http_document
+from specprobe.exporter.http_client import (
+    generate_http_document,
+    generate_rest_client_environments,
+)
+from specprobe.exporter.models import ExportEnvironment
 from specprobe.generator.models import GeneratedTestCase, RequestFixture, ResponseAssertion
 
 
@@ -437,3 +441,137 @@ def test_hypothesis_http_export_determinism(
     doc2 = generate_http_document(test_cases, base_url=base_url)
 
     assert doc1 == doc2
+
+
+def test_generate_rest_client_environments_basic(sample_get_test_case: GeneratedTestCase) -> None:
+    """Test generating http-client.env.json structure with multiple environments and credentials."""
+    tc_auth = GeneratedTestCase(
+        operation_id="secureOp",
+        description="Secure operation requiring API key and Bearer token",
+        request=RequestFixture(
+            method="GET",
+            path="/secure",
+            path_params={},
+            query_params={},
+            headers={},
+            body=None,
+        ),
+        response=ResponseAssertion(status_code=200, headers={}, schema_shape=None),
+        tags=["auth"],
+        security=[{"apiKey": [], "bearerAuth": []}],
+        security_schemes={
+            "apiKey": {"type": "apiKey", "in": "header", "name": "X-API-Key"},
+            "bearerAuth": {"type": "http", "scheme": "bearer"},
+        },
+    )
+
+    envs = [
+        ExportEnvironment(name="local", base_url="http://localhost:8000"),
+        ExportEnvironment(name="work", base_url="https://api.work.internal"),
+    ]
+
+    result = generate_rest_client_environments(envs, [sample_get_test_case, tc_auth])
+
+    assert "local" in result
+    assert "work" in result
+    assert result["local"]["baseUrl"] == "http://localhost:8000"
+    assert result["work"]["baseUrl"] == "https://api.work.internal"
+    # Fallback to default placeholders from SecurityResolver (<api_key>, <token>)
+    assert result["local"]["apiKey"] == "<api_key>"
+    assert result["local"]["bearerAuth"] == "<token>"
+    assert result["work"]["apiKey"] == "<api_key>"
+    assert result["work"]["bearerAuth"] == "<token>"
+
+
+def test_generate_rest_client_environments_custom_vars() -> None:
+    """Test that explicit variable mappings on ExportEnvironment take precedence."""
+    tc_auth = GeneratedTestCase(
+        operation_id="secureOp",
+        description="Secure operation",
+        request=RequestFixture(
+            method="GET",
+            path="/secure",
+            path_params={},
+            query_params={},
+            headers={},
+            body=None,
+        ),
+        response=ResponseAssertion(status_code=200, headers={}, schema_shape=None),
+        security=[{"apiKey": []}],
+        security_schemes={"apiKey": {"type": "apiKey", "in": "header", "name": "X-API-Key"}},
+    )
+
+    envs = [
+        ExportEnvironment(
+            name="dev",
+            base_url="http://localhost:8000",
+            variables={"apiKey": "custom-dev-secret"},
+        ),
+    ]
+
+    result = generate_rest_client_environments(envs, [tc_auth])
+    assert result["dev"]["baseUrl"] == "http://localhost:8000"
+    assert result["dev"]["apiKey"] == "custom-dev-secret"
+
+
+def test_generate_rest_client_environments_skips_negative_auth() -> None:
+    """Test that negative authentication test cases do not generate credential variables."""
+    tc_neg = GeneratedTestCase(
+        test_type="negative_auth_missing",
+        operation_id="secureOp",
+        description="Negative auth test case",
+        request=RequestFixture(
+            method="GET",
+            path="/secure",
+            path_params={},
+            query_params={},
+            headers={},
+            body=None,
+        ),
+        response=ResponseAssertion(status_code=401, headers={}, schema_shape=None),
+        security=[{"apiKey": []}],
+        security_schemes={"apiKey": {"type": "apiKey", "in": "header", "name": "X-API-Key"}},
+    )
+
+    envs = [ExportEnvironment(name="local", base_url="http://localhost:8000")]
+    result = generate_rest_client_environments(envs, [tc_neg])
+    assert result["local"] == {"baseUrl": "http://localhost:8000"}
+
+
+def test_generate_http_document_include_env_header_false(
+    sample_get_test_case: GeneratedTestCase,
+) -> None:
+    """Test that setting include_env_header=False omits top-level variable declarations."""
+    tc_auth = GeneratedTestCase(
+        operation_id="secureOp",
+        description="Secure operation",
+        request=RequestFixture(
+            method="GET",
+            path="/secure",
+            path_params={},
+            query_params={},
+            headers={},
+            body=None,
+        ),
+        response=ResponseAssertion(status_code=200, headers={}, schema_shape=None),
+        security=[{"apiKey": []}],
+        security_schemes={"apiKey": {"type": "apiKey", "in": "header", "name": "X-API-Key"}},
+    )
+
+    # With include_env_header=False
+    doc_no_header = generate_http_document(
+        [sample_get_test_case, tc_auth], include_env_header=False
+    )
+    assert "@baseUrl" not in doc_no_header
+    assert "@apiKey" not in doc_no_header
+    # But requests still reference {{baseUrl}} and {{apiKey}}
+    assert "{{baseUrl}}/pets/42" in doc_no_header
+    assert "{{apiKey}}" in doc_no_header
+    assert doc_no_header.startswith("###")
+
+    # With include_env_header=True (default)
+    doc_with_header = generate_http_document(
+        [sample_get_test_case, tc_auth], include_env_header=True
+    )
+    assert doc_with_header.startswith("@baseUrl = http://localhost:8000")
+    assert "@apiKey = <api_key>" in doc_with_header

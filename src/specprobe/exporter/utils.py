@@ -203,3 +203,15 @@ def format_schema_signature(schema_shape: Any) -> str | None:
     if props:
         return f"# Expected Schema: {type_str} (properties: {', '.join(props)})"
     return f"# Expected Schema: {type_str}"
+
+
+def sanitize_environment_filename(name: str) -> str:
+    """Sanitize an environment name into a safe filesystem filename component.
+
+    Replaces invalid filename characters (slashes, colons, spaces, etc.) with underscores,
+    strips leading/trailing punctuation/whitespace, and falls back to 'environment' if empty.
+    """
+    clean = re.sub(r'[\\/*?:"<>|\s]+', "_", name.strip()).strip("._-")
+    if not clean:
+        return "environment"
+    return clean

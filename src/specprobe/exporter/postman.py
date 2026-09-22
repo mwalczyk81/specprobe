@@ -4,6 +4,7 @@ import json
 import uuid
 from typing import Any
 
+from specprobe.exporter.models import ExportEnvironment
 from specprobe.exporter.security import (
     SecurityResolver,
     format_postman_security_desc,
@@ -201,10 +202,69 @@ def _build_postman_item(test_case: GeneratedTestCase) -> dict[str, Any]:
     }
 
 
+def generate_postman_environment(
+    env: ExportEnvironment,
+    test_cases: list[GeneratedTestCase],
+) -> dict[str, Any]:
+    """Generate a native Postman v2.1.0 Environment data structure from an ExportEnvironment.
+
+    Parameters
+    ----------
+    env : ExportEnvironment
+        Target environment specification containing name, base_url, and optional variables.
+    test_cases : list[GeneratedTestCase]
+        Test cases to inspect for security schemes needing variable parameterization.
+
+    Returns
+    -------
+    dict[str, Any]
+        Dictionary representation conforming to Postman Environment v2.1.0 schema.
+    """
+    env_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"specprobe:env:{env.name}"))
+
+    seen_vars: set[str] = set()
+    values_dict: dict[str, str] = {"baseUrl": env.base_url}
+
+    for tc in test_cases:
+        test_type = getattr(tc, "test_type", "positive")
+        if test_type in ("negative_auth_missing", "negative_auth_invalid"):
+            continue
+        tc_creds = SecurityResolver.resolve_credentials(tc.security, tc.security_schemes)
+        for cred in tc_creds:
+            if cred.variable_name not in seen_vars:
+                seen_vars.add(cred.variable_name)
+                val = env.variables.get(cred.variable_name, cred.default_placeholder)
+                values_dict[cred.variable_name] = val
+
+    # Include any extra custom variables from env.variables not in test cases
+    for var_name, var_val in env.variables.items():
+        if var_name not in values_dict:
+            values_dict[var_name] = var_val
+
+    # Construct values list sorted by key for determinism
+    values_list = [
+        {
+            "key": k,
+            "value": values_dict[k],
+            "enabled": True,
+            "type": "default",
+        }
+        for k in sorted(values_dict.keys())
+    ]
+
+    return {
+        "id": env_id,
+        "name": env.name,
+        "values": values_list,
+        "_postman_variable_scope": "environment",
+    }
+
+
 def generate_postman_collection(
     test_cases: list[GeneratedTestCase],
     collection_name: str | None = None,
     base_url: str = "http://localhost:8000",
+    include_variables: bool = True,
 ) -> dict[str, Any]:
     """Generate a Postman Collection v2.1.0 data structure from test cases.
 
@@ -215,7 +275,10 @@ def generate_postman_collection(
     collection_name : str | None
         Name for the collection. If omitted, defaults to 'SpecProbe Generated Collection'.
     base_url : str
-        Target base URL embedded as collection variable 'baseUrl'.
+        Target base URL embedded as collection variable 'baseUrl' (if include_variables=True).
+    include_variables : bool
+        Whether to embed 'baseUrl' and security variables in collection['variable'].
+        When environment files are generated, this should be False to keep collections clean.
 
     Returns
     -------
@@ -252,37 +315,40 @@ def generate_postman_collection(
         )
     items.extend(root_items)
 
-    # Aggregate all unique security credentials across test cases
-    seen_vars: set[str] = set()
-    sec_variables: list[dict[str, Any]] = []
+    if not include_variables:
+        collection_variables: list[dict[str, Any]] = []
+    else:
+        # Aggregate all unique security credentials across test cases
+        seen_vars: set[str] = set()
+        sec_variables: list[dict[str, Any]] = []
 
-    for tc in test_cases:
-        test_type = getattr(tc, "test_type", "positive")
-        if test_type in ("negative_auth_missing", "negative_auth_invalid"):
-            continue
-        tc_creds = SecurityResolver.resolve_credentials(tc.security, tc.security_schemes)
-        for cred in tc_creds:
-            if cred.variable_name not in seen_vars:
-                seen_vars.add(cred.variable_name)
-                sec_variables.append(
-                    {
-                        "key": cred.variable_name,
-                        "value": cred.default_placeholder,
-                        "type": "string",
-                    }
-                )
+        for tc in test_cases:
+            test_type = getattr(tc, "test_type", "positive")
+            if test_type in ("negative_auth_missing", "negative_auth_invalid"):
+                continue
+            tc_creds = SecurityResolver.resolve_credentials(tc.security, tc.security_schemes)
+            for cred in tc_creds:
+                if cred.variable_name not in seen_vars:
+                    seen_vars.add(cred.variable_name)
+                    sec_variables.append(
+                        {
+                            "key": cred.variable_name,
+                            "value": cred.default_placeholder,
+                            "type": "string",
+                        }
+                    )
 
-    # Sort security variables alphabetically by key for determinism
-    sec_variables.sort(key=lambda v: v["key"])
+        # Sort security variables alphabetically by key for determinism
+        sec_variables.sort(key=lambda v: v["key"])
 
-    collection_variables = [
-        {
-            "key": "baseUrl",
-            "value": base_url,
-            "type": "string",
-        },
-        *sec_variables,
-    ]
+        collection_variables = [
+            {
+                "key": "baseUrl",
+                "value": base_url,
+                "type": "string",
+            },
+            *sec_variables,
+        ]
 
     return {
         "info": {

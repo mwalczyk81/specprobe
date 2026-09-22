@@ -2,6 +2,7 @@
 
 import json
 
+from specprobe.exporter.models import ExportEnvironment
 from specprobe.exporter.security import (
     SecurityResolver,
     format_security_comment,
@@ -124,9 +125,64 @@ def _build_request_block(test_case: GeneratedTestCase) -> str:
     return "\n".join(lines)
 
 
+def generate_rest_client_environments(
+    environments: list[ExportEnvironment],
+    test_cases: list[GeneratedTestCase],
+) -> dict[str, dict[str, str]]:
+    """Generate VS Code REST Client multi-environment configuration mapping.
+
+    Produces a dictionary suitable for serialization to 'http-client.env.json'.
+
+    Parameters
+    ----------
+    environments : list[ExportEnvironment]
+        List of target environments to configure.
+    test_cases : list[GeneratedTestCase]
+        Test cases to inspect for security schemes needing variable parameterization.
+
+    Returns
+    -------
+    dict[str, dict[str, str]]
+        Dictionary mapping each environment name to its key-value variable pairs.
+    """
+    seen_vars: set[str] = set()
+    cred_placeholders: dict[str, str] = {}
+
+    for tc in test_cases:
+        test_type = getattr(tc, "test_type", "positive")
+        if test_type in ("negative_auth_missing", "negative_auth_invalid"):
+            continue
+        tc_creds = SecurityResolver.resolve_credentials(tc.security, tc.security_schemes)
+        for cred in tc_creds:
+            if cred.variable_name not in seen_vars:
+                seen_vars.add(cred.variable_name)
+                cred_placeholders[cred.variable_name] = cred.default_placeholder
+
+    result: dict[str, dict[str, str]] = {}
+    for env in environments:
+        env_dict: dict[str, str] = {"baseUrl": env.base_url}
+        for var_name in sorted(cred_placeholders.keys()):
+            if var_name in env.variables:
+                env_dict[var_name] = env.variables[var_name]
+            else:
+                env_dict[var_name] = cred_placeholders[var_name]
+        # Include any extra custom variables from env.variables not in test cases
+        for var_name, var_val in sorted(env.variables.items()):
+            if var_name not in env_dict:
+                env_dict[var_name] = var_val
+
+        # Sort the inner dictionary keys for determinism
+        sorted_env_dict = {k: env_dict[k] for k in sorted(env_dict.keys())}
+        result[env.name] = sorted_env_dict
+
+    # Sort root environment keys for determinism
+    return {k: result[k] for k in sorted(result.keys())}
+
+
 def generate_http_document(
     test_cases: list[GeneratedTestCase],
     base_url: str = "http://localhost:8000",
+    include_env_header: bool = True,
 ) -> str:
     """Generate a VS Code REST Client (.http) plain-text document from test cases.
 
@@ -135,7 +191,10 @@ def generate_http_document(
     test_cases : list[GeneratedTestCase]
         List of generated test cases to serialize.
     base_url : str
-        Target base URL embedded as the top-level '@baseUrl' variable.
+        Target base URL embedded as the top-level '@baseUrl' variable (if header included).
+    include_env_header : bool
+        Whether to generate top-level '@baseUrl' and '@schemeName' variable definitions.
+        When environment files are generated, this should be False to keep .http files clean.
 
     Returns
     -------
@@ -145,6 +204,11 @@ def generate_http_document(
     """
     if not test_cases:
         return ""
+
+    blocks = [_build_request_block(tc) for tc in test_cases]
+
+    if not include_env_header:
+        return "\n\n".join(blocks) + "\n"
 
     resolved_base_url = (
         base_url.strip().rstrip("/") if base_url and base_url.strip() else "http://localhost:8000"
@@ -169,6 +233,5 @@ def generate_http_document(
 
     header_lines = [f"@baseUrl = {resolved_base_url}", *sec_vars]
     header = "\n".join(header_lines)
-    blocks = [_build_request_block(tc) for tc in test_cases]
 
     return f"{header}\n\n" + "\n\n".join(blocks) + "\n"

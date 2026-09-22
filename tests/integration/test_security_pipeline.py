@@ -68,30 +68,43 @@ def test_full_security_pipeline(tmp_path: Path) -> None:
     assert export_res.exit_code == 0, f"export failed: {export_res.output}"
 
     # Step 4: Validate exported artifacts
-    postman_files = list(out_dir.glob("*.json"))
-    http_files = list(out_dir.glob("*.http"))
-    assert len(postman_files) == 1, "Expected 1 Postman collection JSON file"
-    assert len(http_files) == 1, "Expected 1 .http file"
+    col_file = out_dir / "collection.json"
+    http_file = out_dir / "requests.http"
+    env_pm_file = out_dir / "default.postman_environment.json"
+    env_rest_file = out_dir / "http-client.env.json"
 
-    # Inspect Postman collection
-    with open(postman_files[0], encoding="utf-8") as f:
+    assert col_file.exists()
+    assert http_file.exists()
+    assert env_pm_file.exists()
+    assert env_rest_file.exists()
+
+    # Inspect Postman collection: variables omitted
+    with open(col_file, encoding="utf-8") as f:
         col = json.load(f)
+    assert col["variable"] == []
 
-    var_keys = {v["key"]: v["value"] for v in col["variable"]}
+    # Inspect Postman environment: variables populated
+    with open(env_pm_file, encoding="utf-8") as f:
+        pm_env = json.load(f)
+    var_keys = {v["key"]: v["value"] for v in pm_env["values"]}
     assert "baseUrl" in var_keys
-    assert "bearerAuth" in var_keys
     assert var_keys["bearerAuth"] == "<token>"
-    assert "apiKeyHeaderAuth" in var_keys
     assert var_keys["apiKeyHeaderAuth"] == "<api_key>"
-    assert "apiKeyQueryAuth" in var_keys
     assert var_keys["apiKeyQueryAuth"] == "<api_key>"
 
-    # Inspect .http file
-    with open(http_files[0], encoding="utf-8") as f:
+    # Inspect .http file: header variables omitted, security annotations preserved
+    with open(http_file, encoding="utf-8") as f:
         http_content = f.read()
 
-    assert "@baseUrl =" in http_content
-    assert "@bearerAuth = <token>" in http_content
-    assert "@apiKeyHeaderAuth = <api_key>" in http_content
-    assert "@apiKeyQueryAuth = <api_key>" in http_content
+    assert "@baseUrl" not in http_content
+    assert "@bearerAuth" not in http_content
+    assert "@apiKeyHeaderAuth" not in http_content
+    assert "@apiKeyQueryAuth" not in http_content
     assert "# Security:" in http_content
+
+    # Inspect REST Client environment: variables populated
+    with open(env_rest_file, encoding="utf-8") as f:
+        rest_env = json.load(f)
+    assert "default" in rest_env
+    assert rest_env["default"]["bearerAuth"] == "<token>"
+    assert rest_env["default"]["apiKeyHeaderAuth"] == "<api_key>"
