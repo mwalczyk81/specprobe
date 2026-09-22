@@ -1,5 +1,3 @@
-@baseUrl = http://localhost:8000
-
 ###
 # @name listPets
 # Operation: listPets

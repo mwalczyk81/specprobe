@@ -1,11 +1,3 @@
-@baseUrl = http://localhost:8000
-@apiKeyHeaderAuth = <api_key>
-@apiKeyQueryAuth = <api_key>
-@appIdAuth = <api_key>
-@basicAuth = <credentials>
-@bearerAuth = <token>
-@oauth2Auth = <token>
-
 ###
 # @name getBearerResource
 # Operation: getBearerResource

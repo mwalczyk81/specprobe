@@ -67,7 +67,15 @@ def test_export_to_output_file(tmp_path: Path) -> None:
 
     collection = json.loads(out_file.read_text(encoding="utf-8"))
     assert collection["info"]["name"] == "Custom Petstore Suite"
-    assert collection["variable"][0]["value"] == "https://pets.example.com/api"
+    assert collection["variable"] == []
+
+    env_file = out_file.parent / "default.postman_environment.json"
+    assert env_file.exists()
+    env_data = json.loads(env_file.read_text(encoding="utf-8"))
+    assert any(
+        v["key"] == "baseUrl" and v["value"] == "https://pets.example.com/api"
+        for v in env_data["values"]
+    )
 
 
 def test_export_missing_file() -> None:
@@ -160,9 +168,14 @@ def test_export_http_to_output_file(tmp_path: Path) -> None:
     assert out_file.exists()
 
     content = out_file.read_text(encoding="utf-8")
-    assert content.startswith("@baseUrl = https://pets.example.com/api\n\n")
+    assert "@baseUrl" not in content
     assert "###\n# @name showPetById" in content
     assert "Exported 4 test case(s) to REST Client file" in result.stderr
+
+    env_file = out_file.parent / "http-client.env.json"
+    assert env_file.exists()
+    env_data = json.loads(env_file.read_text(encoding="utf-8"))
+    assert env_data["default"]["baseUrl"] == "https://pets.example.com/api"
 
 
 def test_export_http_empty_file_produces_empty_document(tmp_path: Path) -> None:
@@ -237,15 +250,22 @@ def test_export_both_to_directory(tmp_path: Path) -> None:
 
     collection = json.loads(col_file.read_text(encoding="utf-8"))
     assert collection["info"]["name"] == "Dual Petstore Suite"
-    assert collection["variable"][0]["value"] == "https://api.petstore.io"
+    assert collection["variable"] == []
     assert len(collection["item"]) == 2
 
     http_content = http_file.read_text(encoding="utf-8")
-    assert http_content.startswith("@baseUrl = https://api.petstore.io\n\n")
+    assert "@baseUrl" not in http_content
     assert "###\n# @name listPets" in http_content
 
-    # Verify exact stderr message per contracts/cli-export.md
-    expected_msg = f"Exported 4 test cases to {col_file} and {http_file}"
+    env_pm = out_dir / "default.postman_environment.json"
+    env_rest = out_dir / "http-client.env.json"
+    assert env_pm.exists()
+    assert env_rest.exists()
+
+    expected_msg = (
+        f"Exported 4 test cases to {col_file}, {http_file}, 1 Postman environment file, "
+        f"and {env_rest}"
+    )
     assert expected_msg in result.stderr
 
 
@@ -281,6 +301,7 @@ def test_export_both_empty_input(tmp_path: Path) -> None:
     assert result.exit_code == 0
     col_file = out_dir / "collection.json"
     http_file = out_dir / "requests.http"
+    env_rest = out_dir / "http-client.env.json"
 
     assert col_file.exists()
     assert http_file.exists()
@@ -290,7 +311,11 @@ def test_export_both_empty_input(tmp_path: Path) -> None:
     assert http_file.read_text(encoding="utf-8") == ""
 
     assert "0 test cases found" in result.stderr
-    assert f"Exported 0 test cases to {col_file} and {http_file}" in result.stderr
+    expected_msg = (
+        f"Exported 0 test cases to {col_file}, {http_file}, 1 Postman environment file, "
+        f"and {env_rest}"
+    )
+    assert expected_msg in result.stderr
 
 
 def test_export_both_single_test_case_singular_grammar(tmp_path: Path) -> None:
@@ -311,7 +336,11 @@ def test_export_both_single_test_case_singular_grammar(tmp_path: Path) -> None:
     assert result.exit_code == 0
     col_file = out_dir / "collection.json"
     http_file = out_dir / "requests.http"
-    expected_msg = f"Exported 1 test case to {col_file} and {http_file}"
+    env_rest = out_dir / "http-client.env.json"
+    expected_msg = (
+        f"Exported 1 test case to {col_file}, {http_file}, 1 Postman environment file, "
+        f"and {env_rest}"
+    )
     assert expected_msg in result.stderr
 
 

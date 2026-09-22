@@ -7,7 +7,11 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from specprobe.exporter.postman import generate_postman_collection
+from specprobe.exporter.models import ExportEnvironment
+from specprobe.exporter.postman import (
+    generate_postman_collection,
+    generate_postman_environment,
+)
 from specprobe.exporter.utils import extract_schema_properties
 from specprobe.generator.models import GeneratedTestCase, RequestFixture, ResponseAssertion
 
@@ -519,3 +523,108 @@ def test_hypothesis_postman_export_determinism(
 
     assert json1 == json2
     assert col1 == col2
+
+
+def test_generate_postman_environment_schema_and_id(
+    sample_test_case: GeneratedTestCase,
+) -> None:
+    """Test generating a native Postman v2.1 environment with deterministic UUIDv5."""
+    tc_auth = GeneratedTestCase(
+        operation_id="secureOp",
+        description="Secure operation requiring apiKey",
+        request=RequestFixture(
+            method="GET",
+            path="/secure",
+            path_params={},
+            query_params={},
+            headers={},
+            body=None,
+        ),
+        response=ResponseAssertion(status_code=200, headers={}, schema_shape=None),
+        security=[{"apiKey": []}],
+        security_schemes={"apiKey": {"type": "apiKey", "in": "header", "name": "X-API-Key"}},
+    )
+
+    env = ExportEnvironment(
+        name="staging",
+        base_url="https://api.staging.example.com",
+    )
+
+    result = generate_postman_environment(env, [sample_test_case, tc_auth])
+
+    assert result["name"] == "staging"
+    assert result["_postman_variable_scope"] == "environment"
+
+    # UUIDv5 determinism
+    expected_id = str(uuid.uuid5(uuid.NAMESPACE_URL, "specprobe:env:staging"))
+    assert result["id"] == expected_id
+
+    # Check values
+    values_map = {v["key"]: v for v in result["values"]}
+    assert "baseUrl" in values_map
+    assert values_map["baseUrl"]["value"] == "https://api.staging.example.com"
+    assert values_map["baseUrl"]["enabled"] is True
+
+    assert "apiKey" in values_map
+    assert values_map["apiKey"]["value"] == "<api_key>"
+    assert values_map["apiKey"]["enabled"] is True
+
+
+def test_generate_postman_environment_custom_var_override() -> None:
+    """Test custom variables in ExportEnvironment override default_placeholder."""
+    tc_auth = GeneratedTestCase(
+        operation_id="secureOp",
+        description="Secure operation",
+        request=RequestFixture(
+            method="GET",
+            path="/secure",
+            path_params={},
+            query_params={},
+            headers={},
+            body=None,
+        ),
+        response=ResponseAssertion(status_code=200, headers={}, schema_shape=None),
+        security=[{"apiKey": []}],
+        security_schemes={"apiKey": {"type": "apiKey", "in": "header", "name": "X-API-Key"}},
+    )
+
+    env = ExportEnvironment(
+        name="local",
+        base_url="http://localhost:8000",
+        variables={"apiKey": "custom-override-token"},
+    )
+
+    result = generate_postman_environment(env, [tc_auth])
+    values_map = {v["key"]: v["value"] for v in result["values"]}
+    assert values_map["apiKey"] == "custom-override-token"
+
+
+def test_generate_postman_collection_include_variables_false(
+    sample_test_case: GeneratedTestCase,
+) -> None:
+    """Test that setting include_variables=False omits collection-level variables."""
+    tc_auth = GeneratedTestCase(
+        operation_id="secureOp",
+        description="Secure operation",
+        request=RequestFixture(
+            method="GET",
+            path="/secure",
+            path_params={},
+            query_params={},
+            headers={},
+            body=None,
+        ),
+        response=ResponseAssertion(status_code=200, headers={}, schema_shape=None),
+        security=[{"apiKey": []}],
+        security_schemes={"apiKey": {"type": "apiKey", "in": "header", "name": "X-API-Key"}},
+    )
+
+    # When include_variables=False (environment mode)
+    col_no_vars = generate_postman_collection([sample_test_case, tc_auth], include_variables=False)
+    assert col_no_vars["variable"] == []
+
+    # When include_variables=True (default / legacy)
+    col_with_vars = generate_postman_collection([sample_test_case, tc_auth], include_variables=True)
+    var_keys = [v["key"] for v in col_with_vars["variable"]]
+    assert "baseUrl" in var_keys
+    assert "apiKey" in var_keys

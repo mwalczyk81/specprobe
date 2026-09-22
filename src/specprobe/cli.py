@@ -19,8 +19,14 @@ from specprobe.audit.engine import (
 from specprobe.chunker.extractor import OperationExtractor
 from specprobe.chunker.loader import SpecLoadError, load_openapi_spec
 from specprobe.chunker.models import ChunkingStats
-from specprobe.exporter.engine import export_batch, read_test_cases
-from specprobe.exporter.models import ExportConfig, ExportFormat
+from specprobe.exporter.engine import (
+    export_batch,
+    load_environment_config_file,
+    merge_environments,
+    parse_env_cli_option,
+    read_test_cases,
+)
+from specprobe.exporter.models import ExportConfig, ExportEnvironment, ExportFormat
 from specprobe.formatters.jsonl import stream_chunks_as_jsonl
 from specprobe.generator.gateway import LLMGateway
 from specprobe.index.store import QdrantIndexStore, index_chunk_stream
@@ -583,12 +589,27 @@ def generate_command(
     show_default=True,
     help="Base URL for target API environment embedded as variable.",
 )
+@click.option(
+    "--env",
+    "env",
+    type=str,
+    multiple=True,
+    help="Named environment in <name>=<url> format. Can be specified multiple times.",
+)
+@click.option(
+    "--env-file",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="Path to JSON or YAML environment definitions file.",
+)
 def export_command(
     test_cases_file: Path | None,
     format: str,
     output: Path | None,
     collection_name: str | None,
     base_url: str,
+    env: tuple[str, ...],
+    env_file: Path | None,
 ) -> None:
     """Deterministically transform generated test cases into runnable test artifacts
     (Postman Collections and REST Client .http files).
@@ -606,6 +627,38 @@ def export_command(
             err=True,
         )
         sys.exit(1)
+
+    has_explicit_envs = bool(env) or (env_file is not None)
+    if has_explicit_envs and output is None:
+        click.echo(
+            "Error: Option '--output' is required when exporting environments.",
+            err=True,
+        )
+        sys.exit(1)
+
+    resolved_envs: list[ExportEnvironment] = []
+    if has_explicit_envs:
+        file_envs: list[ExportEnvironment] = []
+        if env_file is not None:
+            try:
+                file_envs = load_environment_config_file(env_file)
+            except (FileNotFoundError, ValueError) as exc:
+                click.echo(f"Error: {exc}", err=True)
+                sys.exit(1)
+
+        cli_envs: list[ExportEnvironment] = []
+        if env:
+            try:
+                cli_envs = parse_env_cli_option(env)
+            except ValueError as exc:
+                click.echo(f"Error: {exc}", err=True)
+                sys.exit(1)
+
+        resolved_envs = merge_environments(file_envs, cli_envs)
+    elif output is not None:
+        # Backward compatibility: --base-url without explicit --env/--env-file
+        # acts as shorthand for --env default=<base_url> when exporting to destination
+        resolved_envs = [ExportEnvironment(name="default", base_url=base_url)]
 
     if test_cases_file is None and sys.stdin.isatty():
         click.echo(
@@ -631,6 +684,8 @@ def export_command(
         output_path=output,
         collection_name=collection_name,
         base_url=base_url,
+        environments=resolved_envs,
+        env_file=env_file,
     )
 
     try:
