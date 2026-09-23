@@ -78,7 +78,7 @@ def test_cli_mock_custom_port_and_host(spawn_mock_server) -> None:
 
     with urllib.request.urlopen(f"http://127.0.0.1:{port}/pets", timeout=5) as resp:
         assert resp.status == 200
-        assert json.loads(resp.read()) == [{"id": 0, "name": ""}]
+        assert json.loads(resp.read()) == [{"id": 0, "name": "sample_name"}]
 
     out, _ = server.stop()
     assert f"http://127.0.0.1:{port}" in out

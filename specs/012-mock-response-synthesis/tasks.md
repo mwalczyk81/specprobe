@@ -8,7 +8,7 @@
 
 **Purpose**: Establish a known-good baseline before touching the synthesizer (no new dependencies, directories, or scaffolding are needed for this feature).
 
-- [ ] T001 Run `uv run pytest tests/unit/test_mock_synth.py tests/unit/test_mock_router.py tests/integration/test_cli_mock.py -v` to confirm the current (pre-change) baseline passes, before modifying `src/specprobe/mock/synth.py`
+- [X] T001 Run `uv run pytest tests/unit/test_mock_synth.py tests/unit/test_mock_router.py tests/integration/test_cli_mock.py -v` to confirm the current (pre-change) baseline passes, before modifying `src/specprobe/mock/synth.py`
 
 ---
 
@@ -18,7 +18,7 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T002 Add an optional `key: str | None = None` parameter to `_synthesize` in `src/specprobe/mock/synth.py`; have `_synthesize_object` pass `key=<property name>` when recursing into each `properties[<name>]` value, and have `_synthesize_array` pass its own `key` through unchanged when recursing into `items` (per data-model.md §2). This is pure plumbing — no observable behavior change yet; the string branch still returns `""` until Phase 3.
+- [X] T002 Add an optional `key: str | None = None` parameter to `_synthesize` in `src/specprobe/mock/synth.py`; have `_synthesize_object` pass `key=<property name>` when recursing into each `properties[<name>]` value, and have `_synthesize_array` pass its own `key` through unchanged when recursing into `items` (per data-model.md §2). This is pure plumbing — no observable behavior change yet; the string branch still returns `""` until Phase 3.
 
 **Checkpoint**: Key-threading plumbing in place (verified indirectly once Phase 3 makes it observable) — user story implementation can begin.
 
@@ -34,14 +34,14 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T003 [P] [US1] Rewrite `test_synthesize_string_format_is_ignored` in `tests/unit/test_mock_synth.py` (its premise is reversed by this feature) to assert format-aware output for all seven supported `format` values (`date-time`, `date`, `email`, `uuid`, `uri`, `url`, `ipv4`) against the literals in data-model.md §1
-- [ ] T004 [P] [US1] Add a test in `tests/unit/test_mock_synth.py` asserting an unrecognized `format` (e.g. `"hostname"`) falls back to the generic `sample_<key>` value rather than `""` (FR-003)
-- [ ] T005 [P] [US1] Add a test in `tests/unit/test_mock_synth.py` asserting that synthesizing the same format-aware schema node repeatedly produces byte-identical output every time (FR-002, SC-004)
+- [X] T003 [P] [US1] Rewrite `test_synthesize_string_format_is_ignored` in `tests/unit/test_mock_synth.py` (its premise is reversed by this feature) to assert format-aware output for all seven supported `format` values (`date-time`, `date`, `email`, `uuid`, `uri`, `url`, `ipv4`) against the literals in data-model.md §1
+- [X] T004 [P] [US1] Add a test in `tests/unit/test_mock_synth.py` asserting an unrecognized `format` (e.g. `"hostname"`) falls back to the generic `sample_<key>` value rather than `""` (FR-003)
+- [X] T005 [P] [US1] Add a test in `tests/unit/test_mock_synth.py` asserting that synthesizing the same format-aware schema node repeatedly produces byte-identical output every time (FR-002, SC-004)
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Add a module-level `_FORMAT_SAMPLES` constant dict in `src/specprobe/mock/synth.py` mapping `date-time` → `"2024-01-01T00:00:00Z"`, `date` → `"2024-01-01"`, `email` → `"user@example.com"`, `uuid` → `"3fa85f64-5717-4562-b3fc-2c963f66afa6"`, `uri` and `url` → `"https://example.com/sample"`, `ipv4` → `"203.0.113.1"` (data-model.md §1)
-- [ ] T007 [US1] Update the `string`-type branch of `_synthesize` in `src/specprobe/mock/synth.py`: if the node's `format` is a key in `_FORMAT_SAMPLES`, return that literal; otherwise return `f"sample_{key}"` if `key is not None`, else the fixed literal `"sample_value"` (depends on T002, T006)
+- [X] T006 [US1] Add a module-level `_FORMAT_SAMPLES` constant dict in `src/specprobe/mock/synth.py` mapping `date-time` → `"2024-01-01T00:00:00Z"`, `date` → `"2024-01-01"`, `email` → `"user@example.com"`, `uuid` → `"3fa85f64-5717-4562-b3fc-2c963f66afa6"`, `uri` and `url` → `"https://example.com/sample"`, `ipv4` → `"203.0.113.1"` (data-model.md §1)
+- [X] T007 [US1] Update the `string`-type branch of `_synthesize` in `src/specprobe/mock/synth.py`: if the node's `format` is a key in `_FORMAT_SAMPLES`, return that literal; otherwise return `f"sample_{key}"` if `key is not None`, else the fixed literal `"sample_value"` (depends on T002, T006)
 
 **Checkpoint**: User Story 1 complete and independently testable. Because US1's own acceptance scenario (AC5) requires the unsupported-format case to fall back to the generic key-based value, T007 necessarily implements that fallback too — this is expected and is what makes User Story 2 (below) a thin, test-only phase.
 
@@ -59,14 +59,14 @@
 
 > **NOTE: Write these tests FIRST if not already covered; here they primarily fix existing expectations**
 
-- [ ] T008 [P] [US2] Update `test_synthesize_string_type` in `tests/unit/test_mock_synth.py`: a bare root `{"type": "string"}` schema (no enclosing property) now expects `"sample_value"`, not `""` (FR-004a)
-- [ ] T009 [P] [US2] Update `test_synthesize_object_required_only` in `tests/unit/test_mock_synth.py`: expect `{"id": 0, "name": "sample_name"}`, not `{"id": 0, "name": ""}`
-- [ ] T010 [P] [US2] Update `test_synthesize_array_of_objects` in `tests/unit/test_mock_synth.py`: expect `[{"id": 0, "name": "sample_name"}]`, not `[{"id": 0, "name": ""}]`
-- [ ] T011 [P] [US2] Update `test_synthesize_resolves_local_definitions_ref` in `tests/unit/test_mock_synth.py`: a root-level array of plain strings resolved via `$ref` has no enclosing property key, so expect `["sample_value"]`, not `[""]`
-- [ ] T012 [P] [US2] Update `test_response_body_synthesized_from_schema_shape` in `tests/unit/test_mock_router.py`: expect `{"id": 0, "name": "sample_name"}`, not `{"id": 0, "name": ""}`
-- [ ] T013 [P] [US2] Update `test_cli_mock_custom_port_and_host` in `tests/integration/test_cli_mock.py`: expect `[{"id": 0, "name": "sample_name"}]`, not `[{"id": 0, "name": ""}]`
-- [ ] T014 [P] [US2] Add a test in `tests/unit/test_mock_synth.py` asserting two different plain string properties (e.g. `"description"`, `"notes"`) synthesize to different values (`"sample_description"`, `"sample_notes"`) derived from their own keys
-- [ ] T015 [P] [US2] Add a test in `tests/unit/test_mock_synth.py` asserting a plain-string array item inherits its enclosing property's key — `{"type": "object", "required": ["tags"], "properties": {"tags": {"type": "array", "items": {"type": "string"}}}}` synthesizes to `{"tags": ["sample_tags"]}`
+- [X] T008 [P] [US2] Update `test_synthesize_string_type` in `tests/unit/test_mock_synth.py`: a bare root `{"type": "string"}` schema (no enclosing property) now expects `"sample_value"`, not `""` (FR-004a)
+- [X] T009 [P] [US2] Update `test_synthesize_object_required_only` in `tests/unit/test_mock_synth.py`: expect `{"id": 0, "name": "sample_name"}`, not `{"id": 0, "name": ""}`
+- [X] T010 [P] [US2] Update `test_synthesize_array_of_objects` in `tests/unit/test_mock_synth.py`: expect `[{"id": 0, "name": "sample_name"}]`, not `[{"id": 0, "name": ""}]`
+- [X] T011 [P] [US2] Update `test_synthesize_resolves_local_definitions_ref` in `tests/unit/test_mock_synth.py`: a root-level array of plain strings resolved via `$ref` has no enclosing property key, so expect `["sample_value"]`, not `[""]`
+- [X] T012 [P] [US2] Update `test_response_body_synthesized_from_schema_shape` in `tests/unit/test_mock_router.py`: expect `{"id": 0, "name": "sample_name"}`, not `{"id": 0, "name": ""}`
+- [X] T013 [P] [US2] Update `test_cli_mock_custom_port_and_host` in `tests/integration/test_cli_mock.py`: expect `[{"id": 0, "name": "sample_name"}]`, not `[{"id": 0, "name": ""}]`
+- [X] T014 [P] [US2] Add a test in `tests/unit/test_mock_synth.py` asserting two different plain string properties (e.g. `"description"`, `"notes"`) synthesize to different values (`"sample_description"`, `"sample_notes"`) derived from their own keys
+- [X] T015 [P] [US2] Add a test in `tests/unit/test_mock_synth.py` asserting a plain-string array item inherits its enclosing property's key — `{"type": "object", "required": ["tags"], "properties": {"tags": {"type": "array", "items": {"type": "string"}}}}` synthesizes to `{"tags": ["sample_tags"]}`
 
 ### Implementation for User Story 2
 
@@ -86,15 +86,15 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T016 [P] [US3] Add a test in `tests/unit/test_mock_synth.py` asserting a node with `"example"` returns it verbatim regardless of declared `type` (cover string, object, array, and integer example values)
-- [ ] T017 [P] [US3] Add a test in `tests/unit/test_mock_synth.py` asserting a node with only `"default"` (no `"example"`) returns it verbatim
-- [ ] T018 [P] [US3] Add a test in `tests/unit/test_mock_synth.py` asserting a node declaring both `"example"` and a different `"default"` returns the `"example"` value
-- [ ] T019 [P] [US3] Add a test in `tests/unit/test_mock_synth.py` asserting a node with `"const"` (and separately `"enum"`) plus a conflicting `"example"` still returns the `const`/`enum` value, not the `example` (FR-008)
-- [ ] T020 [P] [US3] Add a test in `tests/unit/test_mock_synth.py` asserting an `"example"`/`"default"` on an object- or array-typed node replaces that node's entire synthesized subtree rather than being merged into its properties/items
+- [X] T016 [P] [US3] Add a test in `tests/unit/test_mock_synth.py` asserting a node with `"example"` returns it verbatim regardless of declared `type` (cover string, object, array, and integer example values)
+- [X] T017 [P] [US3] Add a test in `tests/unit/test_mock_synth.py` asserting a node with only `"default"` (no `"example"`) returns it verbatim
+- [X] T018 [P] [US3] Add a test in `tests/unit/test_mock_synth.py` asserting a node declaring both `"example"` and a different `"default"` returns the `"example"` value
+- [X] T019 [P] [US3] Add a test in `tests/unit/test_mock_synth.py` asserting a node with `"const"` (and separately `"enum"`) plus a conflicting `"example"` still returns the `const`/`enum` value, not the `example` (FR-008)
+- [X] T020 [P] [US3] Add a test in `tests/unit/test_mock_synth.py` asserting an `"example"`/`"default"` on an object- or array-typed node replaces that node's entire synthesized subtree rather than being merged into its properties/items
 
 ### Implementation for User Story 3
 
-- [ ] T021 [US3] Insert `example`/`default` precedence checks into `_synthesize` in `src/specprobe/mock/synth.py` immediately after the existing `const`/`enum` checks and before the `type`-based dispatch: return `node["example"]` if present, else `node["default"]` if present, per data-model.md §3 (independent of T002/T006/T007)
+- [X] T021 [US3] Insert `example`/`default` precedence checks into `_synthesize` in `src/specprobe/mock/synth.py` immediately after the existing `const`/`enum` checks and before the `type`-based dispatch: return `node["example"]` if present, else `node["default"]` if present, per data-model.md §3 (independent of T002/T006/T007)
 
 **Checkpoint**: All three user stories independently functional. Full precedence chain — `$ref` → `const` → `enum` → `example` → `default` → type dispatch (format-aware/key-based strings, unchanged numbers/booleans) — is in place.
 
@@ -104,11 +104,11 @@
 
 **Purpose**: Quality gate verification and end-to-end validation.
 
-- [ ] T022 [P] Run static type verification with `uv run ty check src/` and confirm zero diagnostics
-- [ ] T023 [P] Run code quality verification with `uv run ruff check .` and `uv run ruff format --check .`
-- [ ] T024 Execute the end-to-end quickstart validation scenarios in `specs/012-mock-response-synthesis/quickstart.md` (Scenarios 1–4)
-- [ ] T025 Run the full automated test suite with `uv run pytest` and confirm 100% of tests pass cleanly
-- [ ] T026 Run pre-commit verification with `uv run pre-commit run --all-files` and confirm all hooks pass
+- [X] T022 [P] Run static type verification with `uv run ty check src/` and confirm zero diagnostics
+- [X] T023 [P] Run code quality verification with `uv run ruff check .` and `uv run ruff format --check .`
+- [X] T024 Execute the end-to-end quickstart validation scenarios in `specs/012-mock-response-synthesis/quickstart.md` (Scenarios 1–4)
+- [X] T025 Run the full automated test suite with `uv run pytest` and confirm 100% of tests pass cleanly (429 passed, 1 skipped; 3 pre-existing unrelated failures — terminal-width rendering in `test_cli_stats.py` and Hypothesis input-generation timing in `test_exporter_http.py` — confirmed present without this feature's changes)
+- [X] T026 Run pre-commit verification with `uv run pre-commit run --all-files` and confirm all hooks pass
 
 ---
 
