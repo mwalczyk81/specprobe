@@ -22,6 +22,12 @@ Property-name-based semantic guessing (e.g. inferring a status field should be \
 Path-parameter or request-body correlation into the response (e.g. injecting a matched petId path param into a response id field). Requires an unspecified field-matching heuristic between path params/body keys and response properties; a wrong match is confidently wrong, worse than the current obviously-fake placeholder.
 Emitting all declared properties instead of required-only. Reverses the prior design decision and ignores Draft 7 conditional keywords (dependencies, if/then/else) that required-only synthesis currently sidesteps entirely."
 
+## Clarifications
+
+### Session 2026-09-22
+
+- Q: When a plain string (no format/enum/const) is being synthesized as an array's item schema or as a schema with no enclosing object property, where does `sample_<property_key>` get its key from? → A: Thread the nearest enclosing object property's key down through arrays/nesting so array items inherit it; use a fixed generic key (`sample_value`) only when no enclosing key exists at all (e.g. a bare root-level string schema).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Recognizable placeholder values for well-known string formats (Priority: P1)
@@ -55,6 +61,8 @@ A developer looks at a mocked response body for a string field that has no forma
 1. **Given** a required string property `"name"` with no `format`, `enum`, or `const`, **When** the response body is synthesized, **Then** the property holds the value `"sample_name"`, not `""`.
 2. **Given** two different required string properties, e.g. `"description"` and `"notes"`, both with no `format`/`enum`/`const`, **When** the response body is synthesized, **Then** each property's value is derived from its own key (`"sample_description"`, `"sample_notes"`) — the two values are not identical to each other.
 3. **Given** the same property is synthesized repeatedly, **When** comparing outputs, **Then** the value is identical every time.
+4. **Given** a required array property `"tags"` whose `items` schema is a plain string (no `format`/`enum`/`const`), **When** the response body is synthesized, **Then** the array's single synthesized item holds the value `"sample_tags"`, inheriting the enclosing property's key.
+5. **Given** a schema node is a plain string with no enclosing object property anywhere above it (e.g. the schema root is itself `{"type": "string"}`), **When** the value is synthesized, **Then** it holds the fixed generic value `"sample_value"`.
 
 ---
 
@@ -83,6 +91,7 @@ A developer's schema explicitly declares an `example` or `default` value for a f
 - An `example` or `default` value's JSON type doesn't match the node's declared `type` (a malformed or inconsistent schema): the literal is still emitted as-is; the synthesizer does not validate `example`/`default` against the rest of the node.
 - An `example`/`default` value appears on an object- or array-typed node: the literal replaces the entire synthesized subtree for that node (nested defaults inside an object's own properties are not separately merged in).
 - A number/integer node has no `example`, `default`, or `minimum`: behavior is unchanged — synthesizes to `0`, since this feature does not add a generic numeric fallback (that remains a rejected non-goal-adjacent scope: no property-name-based guessing, no fabricated business values).
+- A plain string node (no format/enum/const) is nested inside an array, or otherwise has no enclosing object property key: the key-based fallback inherits the nearest enclosing object property's key through any array/`items` nesting; if there is no enclosing property key at all, it emits the fixed generic value `sample_value` rather than reverting to `""` or erroring.
 
 ## Requirements *(mandatory)*
 
@@ -91,7 +100,8 @@ A developer's schema explicitly declares an `example` or `default` value for a f
 - **FR-001**: System MUST, when synthesizing a string-typed schema node whose declared `format` is one of `date-time`, `date`, `email`, `uuid`, `uri`, `url`, or `ipv4`, emit a valid representative literal value for that format instead of an empty string.
 - **FR-002**: System MUST emit the same format-aware value every time the same schema node is synthesized (no randomness, no current-timestamp or environment-derived values), preserving the synthesizer's existing determinism guarantee.
 - **FR-003**: System MUST, when a string-typed schema node declares a `format` outside the supported set in FR-001, fall back to the generic key-based rule in FR-004 rather than emitting an empty string.
-- **FR-004**: System MUST, when a string-typed schema node has no `format`, `enum`, or `const`, emit the value `sample_<property_key>`, where `<property_key>` is that property's own key in the parent object, used mechanically and without semantic interpretation.
+- **FR-004**: System MUST, when a string-typed schema node has no `format`, `enum`, or `const`, emit the value `sample_<property_key>`, where `<property_key>` is the key of the nearest enclosing object property — threaded through any intermediate array/`items` nesting — used mechanically and without semantic interpretation.
+- **FR-004a**: System MUST emit the fixed generic value `sample_value` for a string-typed schema node meeting the FR-004 fallback condition when no enclosing object property key exists at all (e.g. a root-level string schema with no wrapping object).
 - **FR-005**: System MUST, when a schema node of any type declares an `example` key, use that literal value in place of any synthesized value for that node.
 - **FR-006**: System MUST, when a schema node of any type declares a `default` key and does not declare `example`, use that literal `default` value in place of any synthesized value for that node.
 - **FR-007**: System MUST prefer `example` over `default` when a schema node declares both.
@@ -106,7 +116,7 @@ A developer's schema explicitly declares an `example` or `default` value for a f
 ### Measurable Outcomes
 
 - **SC-001**: For every response field backed by a string schema node with a supported format (`date-time`, `date`, `email`, `uuid`, `uri`/`url`, `ipv4`), the mocked value is a syntactically valid instance of that format, in 100% of such fields across the fixture set used for testing.
-- **SC-002**: For every response field backed by a plain string schema node (no format/enum/const), the mocked value visibly incorporates that field's own property key, in 100% of such fields.
+- **SC-002**: For every response field backed by a plain string schema node (no format/enum/const), the mocked value visibly incorporates that field's own property key — or, for array items, the nearest enclosing property's key — in 100% of such fields.
 - **SC-003**: For every response field backed by a schema node declaring `example` or `default`, the mocked value exactly matches that declared literal, in 100% of such fields.
 - **SC-004**: Synthesizing the same schema any number of times in succession produces byte-identical response bodies every time — zero observed variation.
 - **SC-005**: A person unfamiliar with the fixture can visually distinguish a synthesized mock response from an empty/zeroed placeholder body without reading the source schema, for fixtures exercising all three additions above.
