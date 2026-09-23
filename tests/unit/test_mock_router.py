@@ -105,7 +105,7 @@ def test_response_body_synthesized_from_schema_shape() -> None:
     router.load_test_cases([case])
     route = router.match_route("GET", "/pets")
     assert route is not None
-    assert json.loads(route.response.body) == {"id": 0, "name": ""}
+    assert json.loads(route.response.body) == {"id": 0, "name": "sample_name"}
 
 
 def test_response_body_empty_for_204() -> None:
