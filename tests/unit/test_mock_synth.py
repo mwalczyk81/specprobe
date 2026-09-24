@@ -255,3 +255,81 @@ def test_synthesize_example_on_container_replaces_entire_subtree() -> None:
         "example": {"id": 99, "name": "Widget"},
     }
     assert synthesize_sample_from_schema(schema) == {"id": 99, "name": "Widget"}
+
+
+def test_synthesize_all_of_merges_properties_and_required() -> None:
+    """Test that allOf branches contribute properties/required to the parent object,
+    so required keys declared only in a branch resolve to real values, not None."""
+    schema = {
+        "type": "object",
+        "required": ["accountType", "coreProductCode"],
+        "allOf": [
+            {"properties": {"accountType": {"enum": ["CD", "CHECKING"]}}},
+            {
+                "properties": {
+                    "coreProductCode": {"type": "string", "maxLength": 10},
+                    "id": {"type": "string"},
+                },
+                "required": ["id"],
+            },
+        ],
+    }
+    assert synthesize_sample_from_schema(schema) == {
+        "accountType": "CD",
+        "coreProductCode": "sample_cor",
+        "id": "sample_id",
+    }
+
+
+def test_synthesize_all_of_resolves_local_ref_branches() -> None:
+    """Test that a $ref inside allOf is resolved before merging."""
+    schema = {
+        "allOf": [{"$ref": "#/$defs/Base"}, {"required": ["name"]}],
+        "$defs": {
+            "Base": {
+                "type": "object",
+                "properties": {"name": {"type": "string"}, "size": {"type": "integer"}},
+                "required": ["size"],
+            }
+        },
+    }
+    assert synthesize_sample_from_schema(schema) == {"size": 0, "name": "sample_name"}
+
+
+def test_synthesize_any_of_and_one_of_use_first_branch() -> None:
+    """Test that anyOf/oneOf synthesize from their first alternative."""
+    assert synthesize_sample_from_schema({"anyOf": [{"type": "integer"}, {"type": "string"}]}) == 0
+    assert synthesize_sample_from_schema({"oneOf": [{"type": "boolean"}, {"type": "string"}]}) is (
+        False
+    )
+
+
+def test_synthesize_string_honors_pattern() -> None:
+    """Test that a string pattern the fallback value doesn't match is satisfied."""
+    schema = {
+        "type": "object",
+        "required": ["currency", "ref"],
+        "properties": {
+            "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+            "ref": {"type": "string", "pattern": r"^(INV|PO)-\d{4}$"},
+        },
+    }
+    assert synthesize_sample_from_schema(schema) == {"currency": "AAA", "ref": "INV-0000"}
+
+
+def test_synthesize_string_pattern_already_matched_keeps_fallback() -> None:
+    """Test that a pattern the default sample already satisfies leaves it unchanged."""
+    schema = {"type": "string", "pattern": "^sample_"}
+    assert synthesize_sample_from_schema(schema) == "sample_value"
+
+
+def test_synthesize_string_unsupported_pattern_falls_back() -> None:
+    """Test that a regex the sampler can't render falls back instead of raising."""
+    schema = {"type": "string", "pattern": r"^(a)\1$"}
+    assert synthesize_sample_from_schema(schema) == "sample_value"
+
+
+def test_synthesize_string_fits_min_and_max_length() -> None:
+    """Test that the fallback string is padded or truncated into the length bounds."""
+    assert synthesize_sample_from_schema({"type": "string", "maxLength": 6}) == "sample"
+    assert synthesize_sample_from_schema({"type": "string", "minLength": 15}) == "sample_valuexxx"

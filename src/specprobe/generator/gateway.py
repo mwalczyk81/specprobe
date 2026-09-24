@@ -10,6 +10,10 @@ import litellm
 DEFAULT_LOCAL_MODEL = "openai/local-model"
 DEFAULT_LOCAL_API_BASE = "http://localhost:1234/v1"
 DEFAULT_TEMPERATURE = 0.0
+# Upper bounds on a single completion. Without them a model stuck in a repetition loop
+# generates until the context window fills, hanging the batch indefinitely.
+DEFAULT_MAX_TOKENS = 16384
+DEFAULT_TIMEOUT_SECONDS = 600.0
 
 _TAILSCALE_CGNAT_NET = ipaddress.ip_network("100.64.0.0/10")
 
@@ -65,6 +69,8 @@ class LLMGateway:
         api_base: str | None = None,
         api_key: str | None = None,
         temperature: float | None = None,
+        max_tokens: int | None = None,
+        timeout: float | None = None,
     ) -> None:
         resolved_model = model or os.environ.get("SPECPROBE_LLM_MODEL") or DEFAULT_LOCAL_MODEL
         if api_base is not None:
@@ -82,9 +88,28 @@ class LLMGateway:
             else float(os.environ.get("SPECPROBE_LLM_TEMPERATURE", str(DEFAULT_TEMPERATURE)))
         )
 
+        resolved_max_tokens = (
+            max_tokens
+            if max_tokens is not None
+            else int(os.environ.get("SPECPROBE_LLM_MAX_TOKENS", str(DEFAULT_MAX_TOKENS)))
+        )
+        resolved_timeout = (
+            timeout
+            if timeout is not None
+            else float(os.environ.get("SPECPROBE_LLM_TIMEOUT", str(DEFAULT_TIMEOUT_SECONDS)))
+        )
+        if resolved_max_tokens <= 0:
+            raise ValueError(f"max_tokens must be a positive integer, got {resolved_max_tokens}.")
+        if resolved_timeout <= 0:
+            raise ValueError(
+                f"timeout must be a positive number of seconds, got {resolved_timeout}."
+            )
+
         self.model = resolved_model
         self.api_base = resolved_api_base
         self.temperature = resolved_temp
+        self.max_tokens = resolved_max_tokens
+        self.timeout = resolved_timeout
         self.api_key = api_key or os.environ.get("SPECPROBE_LLM_API_KEY")
 
         self._validate_cloud_opt_in()
@@ -162,8 +187,17 @@ class LLMGateway:
                 api_key=self.api_key,
                 messages=messages,
                 temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                timeout=self.timeout,
             )
-            content = response.choices[0].message.content or ""
+            choice = response.choices[0]
+            content = choice.message.content or ""
+        except litellm.Timeout as exc:
+            raise TimeoutError(
+                f"LLM completion for model '{self.model}' exceeded the {self.timeout:g}s "
+                "timeout. The model may be stuck in a repetition loop; raise --timeout if "
+                "it is legitimately that slow."
+            ) from exc
         except Exception as exc:
             if is_local_endpoint(self.api_base):
                 raise ConnectionError(
@@ -174,6 +208,16 @@ class LLMGateway:
             raise RuntimeError(
                 f"LLM completion call failed for model '{self.model}': {exc}"
             ) from exc
+
+        # A completion cut off at max_tokens is almost always a runaway generation; its
+        # truncated text would only fail validation, and caching it would replay the
+        # failure on every rerun.
+        if choice.finish_reason == "length":
+            raise RuntimeError(
+                f"LLM completion for model '{self.model}' was truncated at max_tokens="
+                f"{self.max_tokens} (finish_reason='length'). The model likely entered a "
+                "repetition loop; raise --max-tokens if the output is legitimately that long."
+            )
 
         if cache is not None and content:
             cache.set(

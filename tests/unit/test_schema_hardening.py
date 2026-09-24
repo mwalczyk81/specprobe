@@ -176,7 +176,12 @@ def test_defs_referenced_from_items_still_allowed():
         "items": {"$ref": "#/$defs/Integer"},
     }
     assertion = ResponseAssertion(status_code=200, schema_shape=valid_schema)
-    assert assertion.schema_shape == valid_schema
+    # Accepted, with the OpenAPI-only "int64" format stripped from the $defs entry.
+    assert assertion.schema_shape == {
+        "type": "array",
+        "$defs": {"Integer": {"type": "integer"}},
+        "items": {"$ref": "#/$defs/Integer"},
+    }
 
 
 def test_schema_with_definitions_and_ref_allowed():
@@ -287,3 +292,38 @@ def test_generation_engine_double_failure_resilience():
         assert result.succeeded == 0
         assert len(result.errors) == 1
         assert "listPets" in result.errors[0][0]
+
+
+def test_openapi_only_formats_are_stripped_recursively():
+    """OpenAPI-only formats (int64, double, ...) are dropped at every schema depth, since
+    Postman's Ajv fails the whole assertion on an unknown format."""
+    schema = {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "sizeInBytes": {"type": "integer", "format": "int64"},
+                "rate": {"type": "number", "format": "double"},
+                "createdAt": {"type": "string", "format": "date-time"},
+            },
+            "allOf": [{"properties": {"count": {"type": "integer", "format": "int32"}}}],
+        },
+    }
+    assertion = ResponseAssertion(status_code=200, schema_shape=schema)
+    assert assertion.schema_shape is not None
+    item = assertion.schema_shape["items"]
+    assert item["properties"]["sizeInBytes"] == {"type": "integer"}
+    assert item["properties"]["rate"] == {"type": "number"}
+    assert item["properties"]["createdAt"] == {"type": "string", "format": "date-time"}
+    assert item["allOf"][0]["properties"]["count"] == {"type": "integer"}
+
+
+def test_property_named_format_is_not_stripped():
+    """A property whose *name* is 'format' is data, not the format keyword."""
+    schema = {
+        "type": "object",
+        "properties": {"format": {"type": "string", "enum": ["pdf", "csv"]}},
+        "required": ["format"],
+    }
+    assertion = ResponseAssertion(status_code=200, schema_shape=schema)
+    assert assertion.schema_shape == schema

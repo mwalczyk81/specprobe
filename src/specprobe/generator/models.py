@@ -43,6 +43,71 @@ _MEANINGFUL_SCHEMA_KEYS = {
     "patternProperties",
 }
 
+# Formats Postman's Ajv engine recognizes out of the box. Ajv fails the whole assertion
+# on an unknown format ('unknown format "int64" is used in schema'), and OpenAPI-only
+# formats (int32, int64, float, double, byte, binary, password, ...) routinely leak into
+# LLM-authored schemas, so anything outside this set is dropped from schema_shape.
+_AJV_KNOWN_FORMATS = {
+    "date",
+    "time",
+    "date-time",
+    "uri",
+    "uri-reference",
+    "uri-template",
+    "url",
+    "email",
+    "hostname",
+    "ipv4",
+    "ipv6",
+    "regex",
+    "uuid",
+    "json-pointer",
+    "json-pointer-uri-fragment",
+    "relative-json-pointer",
+}
+
+# Draft 7 keywords whose value is a single subschema, a list of subschemas, or a
+# mapping of names to subschemas. Only these are walked, so a property that happens to
+# be *named* "format" is never mistaken for the format keyword.
+_SUBSCHEMA_KEYWORDS = {
+    "items",
+    "additionalItems",
+    "additionalProperties",
+    "contains",
+    "propertyNames",
+    "not",
+    "if",
+    "then",
+    "else",
+}
+_SUBSCHEMA_LIST_KEYWORDS = {"items", "allOf", "anyOf", "oneOf"}
+_SUBSCHEMA_MAP_KEYWORDS = {
+    "properties",
+    "patternProperties",
+    "definitions",
+    "$defs",
+    "dependencies",
+}
+
+
+def _strip_unknown_formats(node: Any) -> Any:
+    """Return a copy of a schema tree with every non-Ajv 'format' keyword removed."""
+    if not isinstance(node, dict):
+        return node
+    stripped: dict[str, Any] = {}
+    for key, value in node.items():
+        if key == "format" and isinstance(value, str) and value not in _AJV_KNOWN_FORMATS:
+            continue
+        if key in _SUBSCHEMA_LIST_KEYWORDS and isinstance(value, list):
+            stripped[key] = [_strip_unknown_formats(item) for item in value]
+        elif key in _SUBSCHEMA_MAP_KEYWORDS and isinstance(value, dict):
+            stripped[key] = {name: _strip_unknown_formats(sub) for name, sub in value.items()}
+        elif key in _SUBSCHEMA_KEYWORDS:
+            stripped[key] = _strip_unknown_formats(value)
+        else:
+            stripped[key] = value
+    return stripped
+
 
 def _find_unresolvable_refs(node: Any, local_defs: set[str]) -> list[str]:
     """Recursively collect every '$ref' pointer in a schema tree that cannot resolve
@@ -123,7 +188,7 @@ class ResponseAssertion(BaseModel):
     @field_validator("schema_shape")
     @classmethod
     def validate_schema_shape(cls, v: Any) -> dict[str, Any] | None:
-        """Validate that schema_shape conforms to JSON Schema Draft 7 and is self-contained."""
+        """Validate that schema_shape is self-contained Draft 7; drop formats Ajv rejects."""
         if v is None:
             return None
         if not isinstance(v, dict):
@@ -133,6 +198,8 @@ class ResponseAssertion(BaseModel):
             Draft7Validator.check_schema(v)
         except SchemaError as err:
             raise ValueError(f"Invalid JSON Schema Draft 7 structure: {err.message}") from err
+
+        v = _strip_unknown_formats(v)
 
         # Self-contained guarantee: reject any $ref anywhere in the tree (bare top-level,
         # or nested inside "items", "properties", "anyOf", etc.) that doesn't resolve to
