@@ -2,11 +2,14 @@
 
 from unittest.mock import MagicMock, patch
 
+import litellm
 import pytest
 
 from specprobe.generator.gateway import (
     DEFAULT_LOCAL_API_BASE,
     DEFAULT_LOCAL_MODEL,
+    DEFAULT_MAX_TOKENS,
+    DEFAULT_TIMEOUT_SECONDS,
     LLMGateway,
     is_local_endpoint,
 )
@@ -149,4 +152,73 @@ def test_completion_dispatch_local_connection_error() -> None:
 
     with patch("litellm.completion", side_effect=Exception("Connection refused")):
         with pytest.raises(ConnectionError, match="Failed to connect to local model endpoint"):
+            gateway.complete([{"role": "user", "content": "hello"}])
+
+
+def test_max_tokens_and_timeout_defaults_are_passed_to_litellm() -> None:
+    """Every completion must be bounded so a runaway generation cannot hang the batch."""
+    gateway = LLMGateway()
+    assert gateway.max_tokens == DEFAULT_MAX_TOKENS
+    assert gateway.timeout == DEFAULT_TIMEOUT_SECONDS
+
+    mock_response = MagicMock()
+    mock_choice = MagicMock()
+    mock_choice.message.content = '{"operation_id": "test"}'
+    mock_choice.finish_reason = "stop"
+    mock_response.choices = [mock_choice]
+
+    with patch("litellm.completion", return_value=mock_response) as mock_complete:
+        gateway.complete([{"role": "user", "content": "hello"}])
+        assert mock_complete.call_args[1]["max_tokens"] == DEFAULT_MAX_TOKENS
+        assert mock_complete.call_args[1]["timeout"] == DEFAULT_TIMEOUT_SECONDS
+
+
+def test_max_tokens_and_timeout_resolution(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Explicit arguments beat environment variables, which beat defaults."""
+    monkeypatch.setenv("SPECPROBE_LLM_MAX_TOKENS", "2048")
+    monkeypatch.setenv("SPECPROBE_LLM_TIMEOUT", "30")
+    gateway = LLMGateway()
+    assert gateway.max_tokens == 2048
+    assert gateway.timeout == 30.0
+
+    gateway = LLMGateway(max_tokens=512, timeout=5)
+    assert gateway.max_tokens == 512
+    assert gateway.timeout == 5.0
+
+
+def test_non_positive_limits_are_rejected() -> None:
+    """Zero or negative limits are configuration errors, not silent no-ops."""
+    with pytest.raises(ValueError, match="max_tokens"):
+        LLMGateway(max_tokens=0)
+    with pytest.raises(ValueError, match="timeout"):
+        LLMGateway(timeout=0)
+
+
+def test_truncated_completion_raises_and_is_not_cached() -> None:
+    """A completion cut off at max_tokens fails loudly and never reaches the cache."""
+    gateway = LLMGateway(max_tokens=100)
+    cache = MagicMock()
+    cache.get.return_value = None
+
+    mock_response = MagicMock()
+    mock_choice = MagicMock()
+    mock_choice.message.content = '{"operation_id": "te'
+    mock_choice.finish_reason = "length"
+    mock_response.choices = [mock_choice]
+
+    with patch("litellm.completion", return_value=mock_response):
+        with pytest.raises(RuntimeError, match="truncated at max_tokens=100"):
+            gateway.complete([{"role": "user", "content": "hello"}], cache=cache)
+    cache.set.assert_not_called()
+
+
+def test_timeout_raises_timeout_error_not_connection_error() -> None:
+    """A slow local model must not be reported as an unreachable endpoint."""
+    gateway = LLMGateway(timeout=5)
+    timeout_exc = litellm.Timeout(
+        message="Request timed out", model="local-model", llm_provider="openai"
+    )
+
+    with patch("litellm.completion", side_effect=timeout_exc):
+        with pytest.raises(TimeoutError, match="exceeded the 5s timeout"):
             gateway.complete([{"role": "user", "content": "hello"}])

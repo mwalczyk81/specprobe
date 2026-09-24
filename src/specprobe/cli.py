@@ -426,6 +426,20 @@ def search_command(
     help="Sampling temperature for LLM completions.",
 )
 @click.option(
+    "--max-tokens",
+    type=click.IntRange(min=1),
+    default=lambda: int(os.environ.get("SPECPROBE_LLM_MAX_TOKENS", "16384")),
+    show_default=True,
+    help="Maximum tokens per completion; a truncated completion fails that operation.",
+)
+@click.option(
+    "--timeout",
+    type=click.FloatRange(min=0, min_open=True),
+    default=lambda: float(os.environ.get("SPECPROBE_LLM_TIMEOUT", "600")),
+    show_default=True,
+    help="Per-completion timeout in seconds; a timed-out completion fails that operation.",
+)
+@click.option(
     "--cache-dir",
     type=click.Path(),
     default=lambda: os.environ.get("SPECPROBE_CACHE_DIR", ".specprobe/cache"),
@@ -469,6 +483,8 @@ def generate_command(
     model: str,
     api_base: str | None,
     temperature: float,
+    max_tokens: int,
+    timeout: float,
     cache_dir: str,
     no_cache: bool,
     negative_auth: bool,
@@ -534,6 +550,8 @@ def generate_command(
             model=model,
             api_base=api_base,
             temperature=temperature,
+            max_tokens=max_tokens,
+            timeout=timeout,
         )
     except Exception as exc:
         click.echo(f"Error: Gateway initialization failed: {exc}", err=True)
