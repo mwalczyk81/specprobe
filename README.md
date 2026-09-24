@@ -24,7 +24,7 @@ spec.yaml ──→ chunk ──→ index ──→ search ──→ generate �
 
 **`export`** — Deterministically transforms `GeneratedTestCase` JSONL records into runnable test artifacts: Postman Collection v2.1 JSON (with primary tag folders and embedded `pm.test` assertions) and VS Code REST Client `.http` files (with `###` request blocks and metadata documentation). Exports native multi-environment configuration files (`<env>.postman_environment.json` per Postman Environment v2.1 schema with deterministic UUIDv5, and `http-client.env.json` for REST Client) via repeatable `--env <name>=<url>` options or `--env-file <path>` (supporting JSON and YAML). Replaces hardcoded URLs with dynamic `{{baseUrl}}` references and extracts security credentials into environment variables (`{{schemeName}}` / `@schemeName`). Serializes negative test cases as sibling items (`[401]`, `[403]`, `[404]`, and `[400]` item prefixes in Postman; `# @name <op>_401`, `_403`, `_404`, `_400` in REST Client) with matching status assertions; unlike 401/403 (which use inline invalid literals and are excluded from variable parameterization), 404 and 400 test cases retain full credential parameterization since they assert resource lookup and input validation rather than authentication. Strictly zero-LLM, zero-network, and 100% byte-identical across runs per Constitution Principle II.
 
-**`mock`** — Launches a lightweight, local, multi-threaded HTTP mock server (`http.server.ThreadingHTTPServer`) backed by positive `GeneratedTestCase` fixtures (passed via file argument or piped from stdin). Matches incoming HTTP requests against templated route paths with dynamic path parameter extraction (e.g. `/pets/123` resolves to `/pets/{petId}`), normalizes trailing slashes, and returns canned status codes and headers. When a test case defines a Draft 7 JSON Schema shape (`response.schema_shape`), the mock server uses an in-memory schema synthesizer to dynamically emit valid sample JSON payloads matching the schema (types, properties, required fields, nested objects, arrays, enums, `allOf`/`anyOf`/`oneOf` composition, `pattern`, and `minLength`/`maxLength`) so exported Postman tests pass their `pm.response.to.have.jsonSchema(...)` assertions out of the box. Features a rich terminal startup banner, detailed access logging, and helpful 404/405 diagnostic error bodies listing available routes and allowed methods.
+**`mock`** — Launches a lightweight, local, multi-threaded HTTP mock server (`http.server.ThreadingHTTPServer`) backed by positive `GeneratedTestCase` fixtures (passed via file argument or piped from stdin). Each fixture registers one route at its concrete path, with the fixture's own `path_params` substituted into the template (e.g. a fixture for `/pets/{petId}` with `petId: 123` serves `/pets/123` only; other IDs get a 404). Trailing slashes are normalized, and each route returns its canned status code and headers. When a test case defines a Draft 7 JSON Schema shape (`response.schema_shape`), the mock server uses an in-memory schema synthesizer to dynamically emit valid sample JSON payloads matching the schema (types, properties, required fields, nested objects, arrays, enums, `allOf`/`anyOf`/`oneOf` composition, `pattern`, and `minLength`/`maxLength`) so exported Postman tests pass their `pm.response.to.have.jsonSchema(...)` assertions out of the box. Features a rich terminal startup banner, detailed access logging, and helpful 404/405 diagnostic error bodies listing available routes and allowed methods. The mock does not check auth headers or request bodies, so the exported 401/403/400 negative tests fail against it by design; 404 negatives pass only because their sentinel IDs match no registered route. Use it to exercise the happy-path suite.
 
 **`audit`** — Compares an OpenAPI spec against an existing test artifact (Postman collection or `.http` file) for coverage gap analysis, via a hybrid pipeline (deterministic structural diff + per-operation LLM critique through the same LiteLLM gateway), streaming JSONL critique records to stdout with an optional `--summary` human-readable table.
 
@@ -62,17 +62,16 @@ uv run specprobe search "cancel a pending order" --full --limit 3 \
   | uv run specprobe generate
 
 # 5. Spec-wide generation: extract an entire spec unranked and generate tests for all operations
+#    (saved to a file so export and mock can both reuse it without re-running the LLM)
 uv run specprobe search --source-title "Petstore API" --full \
-  | uv run specprobe generate
+  | uv run specprobe generate > cases.jsonl
 
 # 6. Export test cases to runnable Postman collection, REST Client .http files, and environment configs
-uv run specprobe search --source-title "Petstore API" --full \
-  | uv run specprobe generate \
-  | uv run specprobe export --format both --output ./exported_tests \
-      --env local=http://127.0.0.1:8000 --env staging=https://staging.example.com
+uv run specprobe export cases.jsonl --format both --output ./exported_tests \
+  --env local=http://127.0.0.1:8000 --env staging=https://staging.example.com
 
-# 7. Start the local mock server to validate the exported test suite against
-uv run specprobe mock ./exported_tests/cases.jsonl --port 8000
+# 7. Start the local mock server to run the exported happy-path tests against
+uv run specprobe mock cases.jsonl --port 8000
 # Or pipe directly from generation without intermediate files:
 # uv run specprobe search --source-title "Petstore API" --full \
 #   | uv run specprobe generate \
@@ -90,7 +89,7 @@ uv run specprobe audit ./exported_tests/collection.json --spec petstore.yaml --s
 |---|---|---|
 | `chunk <spec_file>` | Parse a spec into JSONL chunks | `--schema-depth`, `--max-tokens`, `--op <id>` (spot-check one operation), `--stats` (summary table instead of chunks) |
 | `index [chunk_file]` | Ingest chunks into the vector store (file arg or stdin) | `--index-dir`, `--stats` (collection health/counts) |
-| `search [query]` | Natural-language retrieval or unranked filter-only spec extraction | `--mode {dense,hybrid,hybrid-rerank}`, `-n/--limit`, `--tag`, `--method`, `--deprecated/--no-deprecated`, `--source-title`, `--source-version`, `--full` |
+| `search [query]` | Natural-language retrieval or unranked filter-only spec extraction | `--mode {dense,hybrid,hybrid-rerank}`, `-n/--limit`, `--tag`, `--method`, `--deprecated/--no-deprecated`, `--source-title`, `--source-version`, `--full`, `--index-dir` |
 | `generate [results_file]` | LLM test-case generation from search results (file arg or stdin) | `--model`, `--api-base`, `--temperature`, `--max-tokens`, `--timeout`, `--cache-dir`, `--no-cache`, `--negative-auth/--no-negative-auth`, `--not-found/--no-not-found`, `--invalid-input/--no-invalid-input` |
 | `export [test_cases_file]` | Transform generated test cases into runnable Postman or REST Client artifacts (file arg or stdin) | `--format {both,postman,http}`, `-o/--output <path/dir>`, `--collection-name <name>`, `--base-url <url>`, `--env <name>=<url>`, `--env-file <path>` |
 | `mock [test_cases_file]` | Run a local multi-threaded HTTP mock server serving canned test cases and synthesized JSON schemas (file arg or stdin) | `-p/--port <port>`, `-h/--host <host>` |
@@ -102,7 +101,7 @@ Every command also accepts input via stdin where a file argument is optional, so
 
 ## Configuration
 
-All `generate` and `audit` flags can be set via environment variable instead (flag takes precedence):
+The LLM, cache, and index settings can be set via environment variable instead (flag takes precedence). `audit` has no `--max-tokens`/`--timeout` flags but honors the matching env vars. The negative-test toggles (`--negative-auth`, `--not-found`, `--invalid-input`) and `audit`'s `--spec`/`--summary` are flag-only.
 
 | Env var | Default |
 |---|---|
