@@ -14,8 +14,13 @@ Incoming HTTP requests are matched against the in-memory route registry using th
    - Trailing slashes are stripped unless the path is the root `/` (e.g., `/pets/` becomes `/pets`).
 2. **Method Normalization**:
    - HTTP method is evaluated case-insensitively and normalized to uppercase (`GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `OPTIONS`, `HEAD`).
-3. **Lookup**:
-   - The route table is queried for `(normalized_method, normalized_path)`.
+3. **Registration**:
+   - Positive fixtures (`test_type: positive`, or any status `< 400`) register at their concrete path (`path_params` substituted into the template) **and** at their path template, if it has `{placeholder}` segments.
+   - `negative_not_found` fixtures register at their concrete sentinel path only (no template), returning their expected `404`.
+   - Other negatives (`401`/`403`/`400`) are not registered: they differ from the positive request only by headers or body, which matching ignores.
+4. **Lookup** (first match wins):
+   1. Exact `(normalized_method, normalized_path)` against concrete paths.
+   2. Path templates for the same method, most literal segments first; equally specific templates keep registration order. Each `{placeholder}` matches one non-empty run of non-`/` characters.
    - Incoming request headers, authorization tokens, query strings, and request body payloads are **ignored**.
 
 ---
@@ -54,16 +59,19 @@ When no registered route matches the requested path for *any* HTTP method:
       {
         "method": "GET",
         "path": "/pets",
+        "path_template": null,
         "operation_id": "listPets"
       },
       {
         "method": "POST",
         "path": "/pets",
+        "path_template": null,
         "operation_id": "createPets"
       },
       {
         "method": "GET",
         "path": "/pets/42",
+        "path_template": "/pets/{petId}",
         "operation_id": "showPetById"
       }
     ]
@@ -72,7 +80,7 @@ When no registered route matches the requested path for *any* HTTP method:
 
 ### 2.3. Method Not Allowed (HTTP 405)
 
-When the requested path exists in the route registry, but the requested HTTP method is not registered for that path:
+When the requested path matches a registered route (exact path or template), but not for the requested HTTP method:
 
 - **Status Code**: `405`
 - **Response Headers**:

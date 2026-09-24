@@ -1,6 +1,10 @@
 """Unit tests for the deterministic JSON Schema Draft 7 mock payload synthesizer."""
 
-from specprobe.mock.synth import synthesize_sample_from_schema
+import re
+
+import pytest
+
+from specprobe.mock.synth import _render_class, synthesize_sample_from_schema
 
 
 def test_synthesize_none_schema_returns_none() -> None:
@@ -333,3 +337,74 @@ def test_synthesize_string_fits_min_and_max_length() -> None:
     """Test that the fallback string is padded or truncated into the length bounds."""
     assert synthesize_sample_from_schema({"type": "string", "maxLength": 6}) == "sample"
     assert synthesize_sample_from_schema({"type": "string", "minLength": 15}) == "sample_valuexxx"
+
+
+@pytest.mark.parametrize(
+    ("pattern", "expected"),
+    [
+        (r"^.{2}$", "aa"),  # ANY
+        (r"^[^a]$", "b"),  # NOT_LITERAL of the default candidate
+        (r"^[^b]$", "a"),  # NOT_LITERAL of anything else
+        (r"^[^a-z]$", "A"),  # negated RANGE
+        (r"^[^aA0]$", "_"),  # negated LITERALs
+        (r"^[^\w]$", "-"),  # negated CATEGORY
+        (r"^[xy]$", "x"),  # class led by a LITERAL
+        (r"^[\s]$", " "),  # class with a CATEGORY
+        (r"^\D\W\S$", "a-a"),  # negated categories at top level
+        (r"^(?>ab)c$", "abc"),  # atomic group
+        (r"^a*?b$", "b"),  # lazy repeat with zero minimum
+    ],
+)
+def test_synthesize_string_pattern_constructs(pattern: str, expected: str) -> None:
+    """Test the regex-derived sample for each supported construct, and that it matches."""
+    value = synthesize_sample_from_schema({"type": "string", "pattern": pattern})
+    assert value == expected
+    assert re.search(pattern, value)
+
+
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        "[",  # invalid regex: neither matching nor sampling can compile it
+        r"^[^\s\S]$",  # negated class that excludes every candidate character
+        r"^[^aA0_\- .x]$",  # negated class that excludes every candidate character
+    ],
+)
+def test_synthesize_string_unsatisfiable_or_invalid_pattern_falls_back(pattern: str) -> None:
+    """Test that patterns the sampler can't satisfy fall back to the default sample."""
+    assert synthesize_sample_from_schema({"type": "string", "pattern": pattern}) == "sample_value"
+
+
+def test_render_class_rejects_unknown_member() -> None:
+    """Test the defensive branch for a character-class member the sampler doesn't know."""
+    with pytest.raises(ValueError, match="unsupported character class member"):
+        _render_class([("BOGUS", None)])
+
+
+def test_synthesize_type_list_uses_first_type() -> None:
+    """Test that a type array synthesizes from its first entry, and an empty one to None."""
+    assert synthesize_sample_from_schema({"type": ["string", "null"]}) == "sample_value"
+    assert synthesize_sample_from_schema({"type": []}) is None
+
+
+def test_synthesize_implicit_array_from_items() -> None:
+    """Test that a schema with 'items' but no 'type' is treated as an array."""
+    assert synthesize_sample_from_schema({"items": {"type": "integer"}}) == [0]
+
+
+def test_synthesize_tuple_items_uses_first_entry() -> None:
+    """Test Draft 7 tuple-form 'items' (a list), including the empty list."""
+    assert synthesize_sample_from_schema({"type": "array", "items": [{"type": "boolean"}]}) == [
+        False
+    ]
+    assert synthesize_sample_from_schema({"type": "array", "items": []}) == []
+
+
+def test_synthesize_all_of_skips_boolean_branches() -> None:
+    """Test that Draft 7 boolean subschemas inside allOf are ignored when merging."""
+    assert synthesize_sample_from_schema({"allOf": [True, {"type": "integer"}]}) == 0
+
+
+def test_synthesize_non_local_ref_returns_none() -> None:
+    """Test that an OpenAPI-style (non-local) $ref resolves to nothing, not an error."""
+    assert synthesize_sample_from_schema({"$ref": "#/components/schemas/Pet"}) is None

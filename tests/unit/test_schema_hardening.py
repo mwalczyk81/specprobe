@@ -327,3 +327,18 @@ def test_property_named_format_is_not_stripped():
     }
     assertion = ResponseAssertion(status_code=200, schema_shape=schema)
     assert assertion.schema_shape == schema
+
+
+def test_format_stripping_preserves_boolean_subschemas():
+    """Draft 7 boolean subschemas (true/false) pass through format stripping untouched."""
+    schema = {
+        "type": "object",
+        "properties": {"anything": True, "count": {"type": "integer", "format": "int64"}},
+        "additionalProperties": False,
+    }
+    assertion = ResponseAssertion(status_code=200, schema_shape=schema)
+    assert assertion.schema_shape == {
+        "type": "object",
+        "properties": {"anything": True, "count": {"type": "integer"}},
+        "additionalProperties": False,
+    }

@@ -43,6 +43,13 @@ class MockRoute(BaseModel):
         ...,
         description="Normalized URI path with resolved path parameters (e.g. '/pets/42').",
     )
+    path_template: str | None = Field(
+        default=None,
+        description=(
+            "Normalized path template (e.g. '/pets/{petId}') that also matches any concrete "
+            "value in each placeholder segment; None for routes served at 'path' only."
+        ),
+    )
     operation_id: str = Field(
         ...,
         description="Traceable identifier of the target API operation.",

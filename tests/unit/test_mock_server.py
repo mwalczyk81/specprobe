@@ -1,17 +1,20 @@
 """Unit tests for MockServer HTTP request dispatch and lifecycle."""
 
 import json
+import signal
 import socket
 import threading
+import time
 from collections.abc import Iterator
 from http.client import HTTPConnection
 
 import pytest
+from rich.console import Console
 
 from specprobe.generator.models import GeneratedTestCase
 from specprobe.mock.models import MockAccessLogEntry, MockServerConfig
 from specprobe.mock.router import MockRouter
-from specprobe.mock.server import MockServer, format_access_log_line
+from specprobe.mock.server import MockServer, _status_text, format_access_log_line
 
 
 def _free_port() -> int:
@@ -227,3 +230,166 @@ def test_format_access_log_line_unmatched() -> None:
     )
     line = format_access_log_line(entry, "/unknown")
     assert "[UNMATCHED]" in line
+
+
+def _request(server: MockServer, method: str, path: str) -> tuple[int, dict[str, str], bytes]:
+    conn = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+    try:
+        conn.request(method, path)
+        resp = conn.getresponse()
+        return resp.status, dict(resp.getheaders()), resp.read()
+    finally:
+        conn.close()
+
+
+def test_templated_route_serves_unseen_path_values(running_server: MockServer) -> None:
+    """Test that a fixture for /pets/{petId} answers IDs other than its own."""
+    status, _headers, body = _request(running_server, "DELETE", "/pets/7")
+    assert status == 204
+    assert body == b""
+
+
+def test_unmatched_path_returns_404_diagnostic(running_server: MockServer) -> None:
+    """Test the in-process 404 path: JSON diagnostic listing registered routes."""
+    status, headers, body = _request(running_server, "GET", "/owners/1")
+    assert status == 404
+    assert headers["Content-Type"] == "application/json"
+    diagnostic = json.loads(body)
+    assert diagnostic["requested"] == {"method": "GET", "path": "/owners/1"}
+    assert {
+        "method": "DELETE",
+        "path": "/pets/42",
+        "path_template": "/pets/{petId}",
+        "operation_id": "deletePet",
+    } in diagnostic["available_routes"]
+
+
+def test_wrong_method_on_templated_path_returns_405(running_server: MockServer) -> None:
+    """Test that 405 detection covers template matches and sets the Allow header."""
+    status, headers, body = _request(running_server, "GET", "/pets/7")
+    assert status == 405
+    assert headers["Allow"] == "DELETE"
+    assert json.loads(body)["allowed_methods"] == ["DELETE"]
+
+
+def test_head_request_omits_body(running_server: MockServer) -> None:
+    """Test that HEAD responses carry Content-Length but no body bytes."""
+    router = running_server.router
+    router.load_test_cases(
+        [_test_case(request={"method": "HEAD", "path": "/pets", "path_params": {}})]
+    )
+    status, headers, body = _request(running_server, "HEAD", "/pets")
+    assert status == 200
+    assert headers["Content-Length"] == str(len(b'{"id": 0}'))
+    assert body == b""
+
+
+def test_percent_encoded_path_is_decoded_before_matching() -> None:
+    """Test that /files/my%20report matches a fixture registered at /files/my report."""
+    router = MockRouter()
+    router.load_test_cases(
+        [
+            _test_case(
+                operation_id="getReport",
+                request={"method": "GET", "path": "/files/my report", "path_params": {}},
+            )
+        ]
+    )
+    config = MockServerConfig(host="127.0.0.1", port=_free_port(), input_source="-")
+    server = MockServer(config, router)
+    thread = threading.Thread(
+        target=server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True
+    )
+    thread.start()
+    try:
+        status, _headers, _body = _request(server, "GET", "/files/my%20report")
+        assert status == 200
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_startup_banner_lists_templates_and_route_count() -> None:
+    """Test that the banner reports every route and shows templates, not fixture IDs."""
+    router = MockRouter()
+    router.load_test_cases(
+        [
+            _test_case(),
+            _test_case(
+                operation_id="showPetById",
+                request={
+                    "method": "GET",
+                    "path": "/pets/{petId}",
+                    "path_params": {"petId": "42"},
+                },
+            ),
+        ]
+    )
+    console = Console(record=True, width=200)
+    config = MockServerConfig(host="127.0.0.1", port=_free_port(), input_source="-")
+    server = MockServer(config, router, console=console)
+    try:
+        server.print_startup_banner("cases.jsonl")
+    finally:
+        server.server_close()
+    output = console.export_text()
+    assert "Loaded: 2 route(s) from cases.jsonl" in output
+    assert "/pets/{petId}" in output
+    assert "/pets/42" not in output
+    assert "200 OK" in output
+
+
+def test_startup_banner_without_routes_skips_table() -> None:
+    """Test that an empty router prints the header but no route table."""
+    console = Console(record=True, width=200)
+    config = MockServerConfig(host="127.0.0.1", port=_free_port(), input_source="-")
+    server = MockServer(config, MockRouter(), console=console)
+    try:
+        server.print_startup_banner("-")
+    finally:
+        server.server_close()
+    output = console.export_text()
+    assert "Loaded: 0 route(s)" in output
+    assert "Operation ID" not in output
+
+
+def test_status_text_handles_nonstandard_codes() -> None:
+    """Test that an unknown status code renders without a reason phrase."""
+    assert _status_text(200) == "200 OK"
+    assert _status_text(599) == "599"
+
+
+def test_serve_until_interrupted_stops_on_signal_and_restores_handlers() -> None:
+    """Test the Ctrl+C lifecycle: serve, stop on the installed SIGINT handler, release
+    the socket, and restore the previous signal handlers."""
+    router = MockRouter()
+    router.load_test_cases([_test_case()])
+    console = Console(record=True, width=200)
+    config = MockServerConfig(host="127.0.0.1", port=_free_port(), input_source="-")
+    server = MockServer(config, router, console=console)
+    original_sigint = signal.getsignal(signal.SIGINT)
+    served: list[int] = []
+
+    def _drive() -> None:
+        # Wait for serve_until_interrupted to install its handler, prove the server
+        # answers, then invoke the handler directly rather than raising a real signal.
+        deadline = time.monotonic() + 5
+        while signal.getsignal(signal.SIGINT) is original_sigint:
+            if time.monotonic() > deadline:
+                return
+            time.sleep(0.01)
+        served.append(_request(server, "GET", "/pets")[0])
+        handler = signal.getsignal(signal.SIGINT)
+        assert callable(handler)
+        handler(signal.SIGINT, None)
+
+    driver = threading.Thread(target=_drive, daemon=True)
+    driver.start()
+    exit_code = server.serve_until_interrupted(poll_interval=0.02)
+    driver.join(timeout=5)
+
+    assert exit_code == 0
+    assert served == [200]
+    assert signal.getsignal(signal.SIGINT) is original_sigint
+    assert "Shutting down mock server" in console.export_text()

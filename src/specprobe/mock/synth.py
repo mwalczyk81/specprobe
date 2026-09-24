@@ -195,8 +195,10 @@ def _render_regex(tokens: Any) -> str:
         elif name in ("MAX_REPEAT", "MIN_REPEAT", "POSSESSIVE_REPEAT"):
             minimum, _maximum, sub_tokens = arg
             out.append(_render_regex(sub_tokens) * minimum)
-        elif name in ("SUBPATTERN", "ATOMIC_GROUP"):
+        elif name == "SUBPATTERN":
             out.append(_render_regex(arg[-1]))
+        elif name == "ATOMIC_GROUP":
+            out.append(_render_regex(arg))
         elif name == "BRANCH":
             out.append(_render_regex(arg[1][0]))
         elif name == "AT":

@@ -7,7 +7,7 @@ import time
 from datetime import UTC, datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from rich.console import Console
 from rich.table import Table
@@ -52,7 +52,7 @@ class MockRequestHandler(BaseHTTPRequestHandler):
     def _handle(self) -> None:
         start = time.perf_counter()
         raw_path = self.path
-        match_path = urlsplit(raw_path).path
+        match_path = unquote(urlsplit(raw_path).path)
         method = self.command
 
         # Drain any request body off the wire even though matching ignores it:
@@ -134,7 +134,7 @@ class MockServer(ThreadingHTTPServer):
         url = f"http://{self.config.host}:{self.server_port}"
         self.console.print("[bold]SpecProbe Mock Server[/bold]")
         self.console.print(f"Running at: {url}")
-        self.console.print(f"Loaded: {len(routes)} positive route(s) from {source_label}")
+        self.console.print(f"Loaded: {len(routes)} route(s) from {source_label}")
         if routes:
             table = Table()
             table.add_column("Method")
@@ -144,7 +144,7 @@ class MockServer(ThreadingHTTPServer):
             for route in routes:
                 table.add_row(
                     route.method,
-                    route.path,
+                    route.path_template or route.path,
                     _status_text(route.response.status_code),
                     route.operation_id,
                 )
