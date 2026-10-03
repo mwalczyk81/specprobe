@@ -15,7 +15,7 @@ HTTP_METHODS = {"get", "post", "put", "delete", "patch", "options", "head", "tra
 class OperationExtractor:
     """Extracts, normalizes, and packages individual operations into autonomous chunks."""
 
-    def __init__(self, spec: dict[str, Any], schema_depth: int = 2) -> None:
+    def __init__(self, spec: dict[str, Any], schema_depth: int | None = 2) -> None:
         self.spec = spec
         self.schema_depth = schema_depth
         self.global_security = spec.get("security", [])
