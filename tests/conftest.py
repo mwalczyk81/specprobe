@@ -25,6 +25,14 @@ if os.environ.get("PYTEST_XDIST_WORKER"):
     settings.load_profile("parallel")
 
 
+@pytest.fixture(autouse=True)
+def isolate_specprobe_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Isolate SpecProbe cache and index directories per test to prevent concurrent collisions."""
+    monkeypatch.setenv("SPECPROBE_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setenv("SPECPROBE_AUDIT_CACHE_DIR", str(tmp_path / "audit_cache"))
+    monkeypatch.setenv("SPECPROBE_INDEX_DIR", str(tmp_path / "index"))
+
+
 @pytest.fixture
 def fixtures_dir() -> Path:
     """Return the absolute Path to the test fixtures directory."""
