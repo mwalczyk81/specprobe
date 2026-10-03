@@ -1,5 +1,6 @@
 """Cryptographic disk cache for LLM completions enforcing deterministic offline replay."""
 
+import contextlib
 import hashlib
 import json
 import os
@@ -138,9 +139,7 @@ class DiskCache:
             os.replace(temp_file, cache_file)
         except OSError:
             # Cache writes are optimizations and must never fail the calling command
-            try:
+            with contextlib.suppress(OSError):
                 temp_file.unlink(missing_ok=True)
-            except OSError:
-                pass
 
         return key

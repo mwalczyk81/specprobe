@@ -1,3 +1,5 @@
+"""Unit tests for DiskCache: key hashing determinism, hits, misses, and recovery."""
+
 import concurrent.futures
 import json
 from pathlib import Path
