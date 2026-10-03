@@ -19,6 +19,7 @@ from specprobe.audit.engine import (
 from specprobe.chunker.extractor import OperationExtractor
 from specprobe.chunker.loader import SpecLoadError, load_openapi_spec
 from specprobe.chunker.models import ChunkingStats
+from specprobe.diff import DiffEngine, render_diff_summary, stream_diff_as_jsonl
 from specprobe.exporter.engine import (
     export_batch,
     load_environment_config_file,
@@ -917,6 +918,48 @@ def mock_command(test_cases_file: Path | None, port: int, host: str) -> None:
     server.print_startup_banner(source_label)
     exit_code = server.serve_until_interrupted()
     sys.exit(exit_code)
+
+
+@cli.command("diff")
+@click.argument("old_spec", type=click.Path(allow_dash=True))
+@click.argument("new_spec", type=click.Path(allow_dash=True))
+@click.option(
+    "--summary",
+    is_flag=True,
+    default=False,
+    help="Render human-readable summary table of structural differences to stderr.",
+)
+def diff_command(old_spec: str, new_spec: str, summary: bool) -> None:
+    """Deterministically compare two OpenAPI 3.0/3.1 specifications and report
+    what changed between them at the operation and schema level.
+    """
+    try:
+        engine = DiffEngine(old_spec=old_spec, new_spec=new_spec)
+    except FileNotFoundError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(2)
+    except SpecLoadError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(2)
+    except Exception as exc:
+        click.echo(f"Error loading specification: {exc}", err=True)
+        sys.exit(2)
+
+    try:
+        for jsonl_line in stream_diff_as_jsonl(engine.diff()):
+            click.echo(jsonl_line, nl=False)
+    except Exception as exc:
+        click.echo(f"Error during diff comparison: {exc}", err=True)
+        sys.exit(2)
+
+    diff_summary = engine.get_summary()
+
+    if summary:
+        render_diff_summary(diff_summary)
+
+    if diff_summary.has_breaking_changes:
+        sys.exit(1)
+    sys.exit(0)
 
 
 if __name__ == "__main__":
