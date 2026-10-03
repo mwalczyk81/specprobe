@@ -4,12 +4,25 @@ import os
 import warnings
 from pathlib import Path
 
-import pytest
+if os.environ.get("PYTEST_XDIST_WORKER"):
+    os.environ.setdefault("OMP_NUM_THREADS", "1")
+    os.environ.setdefault("MKL_NUM_THREADS", "1")
+
+import pytest  # noqa: E402
+from hypothesis import HealthCheck, settings  # noqa: E402
 
 # Globally suppress Hugging Face and tqdm download progress bars and warnings in tests
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 os.environ["TQDM_DISABLE"] = "1"
 warnings.filterwarnings("ignore", message=".*Cannot enable progress bars.*")
+
+settings.register_profile(
+    "parallel",
+    suppress_health_check=[HealthCheck.too_slow],
+    deadline=None,
+)
+if os.environ.get("PYTEST_XDIST_WORKER"):
+    settings.load_profile("parallel")
 
 
 @pytest.fixture
