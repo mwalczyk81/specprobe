@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -119,7 +120,7 @@ class DiskCache:
         """
         key = compute_cache_key(model=model, messages=messages, temperature=temperature)
         cache_file = self.cache_dir / f"{key}.json"
-        temp_file = self.cache_dir / f".{key}.tmp"
+        temp_file = self.cache_dir / f".{key}.{uuid.uuid4().hex}.tmp"
 
         record: dict[str, Any] = {
             "cache_key": key,
@@ -132,7 +133,14 @@ class DiskCache:
         }
 
         canonical_data = json.dumps(record, indent=2, ensure_ascii=False)
-        temp_file.write_text(canonical_data, encoding="utf-8")
-        os.replace(temp_file, cache_file)
+        try:
+            temp_file.write_text(canonical_data, encoding="utf-8")
+            os.replace(temp_file, cache_file)
+        except OSError:
+            # Cache writes are optimizations and must never fail the calling command
+            try:
+                temp_file.unlink(missing_ok=True)
+            except OSError:
+                pass
 
         return key
