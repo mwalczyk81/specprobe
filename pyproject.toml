@@ -31,11 +31,15 @@ dev = [
     "pre-commit>=4.6.2",
     "pytest>=8.0.0",
     "pytest-cov>=7.1.0",
+    "pytest-randomly>=3.16.0",
+    "pytest-repeat>=0.9.4",
+    "pytest-xdist>=3.8.0",
     "ruff>=0.16.8",
     "ty>=0.0.82",
 ]
 
 [tool.pytest.ini_options]
+addopts = ["-n", "4", "-p", "no:randomly"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 filterwarnings = [

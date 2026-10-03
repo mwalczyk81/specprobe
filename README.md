@@ -132,6 +132,40 @@ uv run ruff format --check .       # format check
 uv run pre-commit run --all-files  # git hooks validation
 ```
 
+### Running tests
+
+Parallel execution across 4 workers (`-n 4`) is the default (`uv run pytest`), providing fast test runs while automatically constraining worker thread counts and Hypothesis health checks.
+
+Use `-n 0` for serial execution, `--pdb` or `-s` debugging, and when running wall-clock latency benchmarks (which are skipped under xdist workers because they require an unloaded machine):
+
+```bash
+uv run pytest -n 0 tests/integration/test_scale_search.py   # run latency benchmarks serially
+```
+
+#### Hunting flaky tests
+
+Built-in tools (`pytest-repeat` and `pytest-randomly`) are available in the dev environment for isolating flakiness. `pytest-randomly` is disabled by default via `-p no:randomly` in `addopts`:
+
+- **Repeat a suspect test** (catches intermittent race conditions and resource leaks):
+  ```bash
+  uv run pytest path/to/test.py -n 4 --count 20 -x
+  ```
+- **Repeat the whole suite** (catches cumulative state corruption across test boundaries):
+  ```bash
+  uv run pytest --count 3 -x
+  ```
+- **Shuffle execution order** (catches test ordering dependencies and unreset global state):
+  ```bash
+  uv run pytest -o addopts="-n 4" -p randomly
+  ```
+  A failing seed is printed in the test header. Reproduce the exact order with `--randomly-seed=<seed>` combined with `-o addopts="-n 0"` to rule out xdist worker concurrency:
+  ```bash
+  uv run pytest -o addopts="-n 0" -p randomly --randomly-seed=<seed>
+  ```
+
+> [!NOTE]
+> Skip latency benchmarks in repeat loops. They are automatically skipped under xdist workers and are only meaningful on an unloaded machine; run them serially with `uv run pytest -n 0 tests/integration/test_scale_search.py`.
+
 Feature work follows a spec-first workflow — see `specs/` for the spec, plan, and task breakdown behind each feature, and `.specify/memory/constitution.md` for the constraints every change is checked against.
 
 ## Project layout

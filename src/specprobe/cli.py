@@ -749,7 +749,7 @@ def export_command(
     "--no-cache",
     is_flag=True,
     default=False,
-    help="Bypass LLM disk cache when generating semantic assertion critiques.",
+    help="Bypass existing disk cache entries and refresh cache records.",
 )
 @click.option(
     "--model",

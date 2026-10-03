@@ -1,6 +1,7 @@
 """Integration tests for the `specprobe mock` CLI command."""
 
 import json
+import os
 import socket
 import subprocess
 import sys
@@ -24,7 +25,7 @@ def _free_port() -> int:
         return sock.getsockname()[1]
 
 
-def _wait_for_server(host: str, port: int, timeout: float = 10.0) -> None:
+def _wait_for_server(host: str, port: int, timeout: float = 30.0) -> None:
     deadline = time.monotonic() + timeout
     last_error: Exception | None = None
     while time.monotonic() < deadline:
@@ -44,15 +45,17 @@ class _MockServerProcess:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding="utf-8",
+            env={**os.environ, "PYTHONUTF8": "1"},
         )
 
     def stop(self) -> tuple[str, str]:
         self.proc.terminate()
         try:
-            out, err = self.proc.communicate(timeout=5)
+            out, err = self.proc.communicate(timeout=30)
         except subprocess.TimeoutExpired:
             self.proc.kill()
-            out, err = self.proc.communicate(timeout=5)
+            out, err = self.proc.communicate(timeout=30)
         return out, err
 
 
@@ -94,6 +97,8 @@ def test_cli_mock_stdin_streaming() -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        encoding="utf-8",
+        env={**os.environ, "PYTHONUTF8": "1"},
     )
     try:
         assert proc.stdin is not None
@@ -106,10 +111,10 @@ def test_cli_mock_stdin_streaming() -> None:
     finally:
         proc.terminate()
         try:
-            proc.wait(timeout=5)
+            proc.wait(timeout=30)
         except subprocess.TimeoutExpired:
             proc.kill()
-            proc.wait(timeout=5)
+            proc.wait(timeout=30)
         if proc.stdout is not None:
             proc.stdout.close()
         if proc.stderr is not None:
@@ -187,8 +192,10 @@ def test_cli_mock_port_conflict_exits_1() -> None:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding="utf-8",
+            env={**os.environ, "PYTHONUTF8": "1"},
         )
-        _out, err = proc.communicate(timeout=10)
+        _out, err = proc.communicate(timeout=30)
         assert proc.returncode == 1
         assert "Failed to bind port" in err
     finally:

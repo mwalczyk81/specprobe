@@ -7,6 +7,7 @@ for a local Qdrant collection containing 1,000 indexed operations:
 - Hybrid + Cross-Encoder Reranking: < 1000ms (1.0s)
 """
 
+import os
 import time
 from collections.abc import Generator
 
@@ -82,6 +83,10 @@ def scale_search_engine(
         yield searcher
 
 
+@pytest.mark.skipif(
+    bool(os.environ.get("PYTEST_XDIST_WORKER")),
+    reason="latency benchmark needs an unloaded machine; runs serially in CI",
+)
 def test_scale_dense_search_latency(scale_search_engine: SearchEngine) -> None:
     """Verify that dense vector search on 1,000 indexed operations executes in < 250ms.
 
@@ -105,6 +110,10 @@ def test_scale_dense_search_latency(scale_search_engine: SearchEngine) -> None:
     assert best_latency < 0.250, f"Dense search took {best_latency * 1000:.1f}ms (target < 250ms)"
 
 
+@pytest.mark.skipif(
+    bool(os.environ.get("PYTEST_XDIST_WORKER")),
+    reason="latency benchmark needs an unloaded machine; runs serially in CI",
+)
 def test_scale_hybrid_search_latency(scale_search_engine: SearchEngine) -> None:
     """Verify that hybrid search (Dense + BM25 via RRF) on 1,000 indexed operations
     executes in < 250ms.
@@ -130,6 +139,10 @@ def test_scale_hybrid_search_latency(scale_search_engine: SearchEngine) -> None:
     assert best_latency < 0.250, f"Hybrid search took {best_latency * 1000:.1f}ms (target < 250ms)"
 
 
+@pytest.mark.skipif(
+    bool(os.environ.get("PYTEST_XDIST_WORKER")),
+    reason="latency benchmark needs an unloaded machine; runs serially in CI",
+)
 def test_scale_hybrid_rerank_search_latency(scale_search_engine: SearchEngine) -> None:
     """Verify that hybrid retrieval with cross-encoder reranking on 1,000 operations
     executes in < 1000ms.

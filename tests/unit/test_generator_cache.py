@@ -1,7 +1,11 @@
 """Unit tests for DiskCache: key hashing determinism, hits, misses, and recovery."""
 
+import concurrent.futures
 import json
 from pathlib import Path
+from threading import Barrier
+
+import pytest
 
 from specprobe.generator.cache import DiskCache, compute_cache_key
 
@@ -121,3 +125,65 @@ def test_atomic_write_leaves_no_temp_files(tmp_path: Path) -> None:
     files = list(tmp_path.iterdir())
     assert len(files) == 1
     assert files[0].name == f"{key}.json"
+
+
+def test_concurrent_set_same_key_thread_safety(tmp_path: Path) -> None:
+    """Verify that multiple concurrent threads writing the same key do not collide
+    or leak temp files.
+    """
+    cache = DiskCache(cache_dir=tmp_path)
+    messages = [{"role": "user", "content": "concurrent prompt"}]
+    completion = '{"status": "ok"}'
+    num_threads = 16
+    iterations_per_thread = 50
+    barrier = Barrier(num_threads)
+
+    def worker() -> None:
+        barrier.wait()
+        for _ in range(iterations_per_thread):
+            cache.set(
+                model="openai/local-model",
+                messages=messages,
+                temperature=0.0,
+                completion_text=completion,
+            )
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
+        futures = [executor.submit(worker) for _ in range(num_threads)]
+        for f in futures:
+            f.result()  # Re-raises any exception
+
+    expected_key = compute_cache_key(model="openai/local-model", messages=messages, temperature=0.0)
+    target_file = tmp_path / f"{expected_key}.json"
+    assert target_file.exists()
+
+    record = json.loads(target_file.read_text(encoding="utf-8"))
+    assert record["completion_text"] == completion
+
+    leftover_tmp = list(tmp_path.glob(".*.tmp"))
+    assert leftover_tmp == []
+
+
+def test_cache_set_oserror_handled_gracefully(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verify that an OSError during os.replace is suppressed and leaves no temp files."""
+    cache = DiskCache(cache_dir=tmp_path)
+    messages = [{"role": "user", "content": "error test"}]
+
+    def failing_replace(_src: Path | str, _dst: Path | str) -> None:
+        raise PermissionError("Simulated Windows access violation")
+
+    monkeypatch.setattr("os.replace", failing_replace)
+
+    key = cache.set(
+        model="openai/local-model",
+        messages=messages,
+        temperature=0.0,
+        completion_text='{"status": 500}',
+    )
+
+    assert isinstance(key, str)
+    assert len(key) == 64
+    leftover_tmp = list(tmp_path.glob(".*.tmp"))
+    assert leftover_tmp == []
