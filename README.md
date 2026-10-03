@@ -134,7 +134,13 @@ uv run pre-commit run --all-files  # git hooks validation
 
 ### Running tests
 
-Serial execution is the default (`uv run pytest`). For faster local runs, opt in to parallel execution with `uv run pytest -n 4` (or `-n auto`). Under `pytest-xdist`, worker thread counts and Hypothesis health checks are automatically constrained, and wall-clock latency benchmark tests (`tests/integration/test_scale_search.py`) are skipped because they require an unloaded machine.
+Parallel execution across 4 workers (`-n 4`) is the default (`uv run pytest`), providing fast test runs while automatically constraining worker thread counts and Hypothesis health checks.
+
+Use `-n 0` for serial execution, `--pdb` or `-s` debugging, and when running wall-clock latency benchmarks (which are skipped under xdist workers because they require an unloaded machine):
+
+```bash
+uv run pytest -n 0 tests/integration/test_scale_search.py   # run latency benchmarks serially
+```
 
 Feature work follows a spec-first workflow — see `specs/` for the spec, plan, and task breakdown behind each feature, and `.specify/memory/constitution.md` for the constraints every change is checked against.
 
