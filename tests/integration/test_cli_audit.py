@@ -51,7 +51,7 @@ def test_audit_with_direct_spec_postman() -> None:
             ["audit", artifact_path, "--spec", spec_path, "--no-cache"],
         )
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, f"output={result.output!r} exception={result.exception!r}"
     lines = [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
     assert len(lines) >= 1
 
@@ -81,7 +81,7 @@ def test_audit_with_direct_spec_http() -> None:
             ["audit", artifact_path, "--spec", spec_path, "--no-cache"],
         )
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, f"output={result.output!r} exception={result.exception!r}"
     lines = [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
     assert len(lines) >= 1
 
@@ -113,7 +113,7 @@ def test_audit_stdin_pipe() -> None:
             input=content,
         )
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, f"output={result.output!r} exception={result.exception!r}"
     lines = [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
     assert len(lines) >= 1
 
@@ -139,7 +139,7 @@ def test_audit_with_summary_flag() -> None:
             ["audit", artifact_path, "--spec", spec_path, "--summary", "--no-cache"],
         )
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, f"output={result.output!r} exception={result.exception!r}"
     # stderr must contain the summary report
     assert "SpecProbe Audit Summary" in result.stderr
     assert "Operations:" in result.stderr
@@ -159,7 +159,7 @@ def test_audit_empty_artifact(tmp_path: Path) -> None:
         ["audit", str(empty_file), "--spec", spec_path],
     )
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, f"output={result.output!r} exception={result.exception!r}"
     lines = [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
     assert len(lines) >= 1
     critiques = [OperationCritique.model_validate_json(line) for line in lines]
@@ -180,7 +180,7 @@ def test_audit_missing_artifact_file() -> None:
             "tests/fixtures/valid_openapi_30.yaml",
         ],
     )
-    assert result.exit_code == 1
+    assert result.exit_code == 1, f"output={result.output!r} exception={result.exception!r}"
     assert "does not exist" in result.stderr.lower() or "does not exist" in result.stdout.lower()
 
 
@@ -194,7 +194,7 @@ def test_audit_missing_spec_and_index(tmp_path: Path) -> None:
         cli,
         ["audit", artifact_path, "--index-dir", str(fake_index)],
     )
-    assert result.exit_code == 1
+    assert result.exit_code == 1, f"output={result.output!r} exception={result.exception!r}"
     assert "specprobe index" in result.stderr.lower() or "--spec" in result.stderr.lower()
 
 
@@ -226,7 +226,7 @@ def test_audit_with_index_dir(tmp_path: Path) -> None:
             ["audit", artifact_path, "--index-dir", str(index_dir), "--no-cache"],
         )
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, f"output={result.output!r} exception={result.exception!r}"
     lines = [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
     assert len(lines) >= 1
 
@@ -243,7 +243,7 @@ def test_audit_llm_failure_exit_code() -> None:
             ["audit", artifact_path, "--spec", spec_path, "--no-cache"],
         )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 1, f"output={result.output!r} exception={result.exception!r}"
     assert "LiteLLM connection timeout" in result.stderr or "LLM" in result.stderr
 
 
