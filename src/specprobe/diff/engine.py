@@ -35,6 +35,23 @@ def normalize_path_template(path: str) -> str:
     return normalized
 
 
+_PATH_PLACEHOLDER = re.compile(r"\{([^}]+)\}")
+
+
+def _param_key(param: dict[str, Any], path_template: str) -> tuple[str, str]:
+    """Identity of a parameter across spec versions.
+
+    Path parameters are positional on the wire, so they are keyed by the index of their
+    placeholder in the path template. Renaming one is not a contract change.
+    """
+    location, name = param["in"], param["name"]
+    if location == "path":
+        names = _PATH_PLACEHOLDER.findall(path_template)
+        if name in names:
+            return ("path", f"#{names.index(name)}")
+    return (location, name)
+
+
 def extract_spec_operations(
     spec_input: str | Path | dict[str, Any],
 ) -> tuple[dict[tuple[str, str], OperationChunk], dict[str, Any]]:
@@ -216,7 +233,7 @@ class DiffEngine:
         new_op = new_chunk.operation
 
         # 1. Parameter comparisons
-        yield from self._diff_parameters(old_op, new_op, method, orig_path)
+        yield from self._diff_parameters(old_op, new_op, method, orig_path, new_chunk.metadata.path)
 
         # 2. Request body comparisons
         yield from self._diff_request_body(old_op, new_op, method, orig_path)
@@ -230,6 +247,7 @@ class DiffEngine:
         new_op: dict[str, Any],
         method: str,
         orig_path: str,
+        new_path: str,
     ) -> Generator[DiffChangeRecord, None, None]:
         """Diff parameters: check for newly required parameters and schema breaking changes."""
         old_params_raw = old_op.get("parameters", [])
@@ -239,18 +257,19 @@ class DiffEngine:
         if isinstance(old_params_raw, list):
             for p in old_params_raw:
                 if isinstance(p, dict) and "name" in p and "in" in p:
-                    old_params[(p["in"], p["name"])] = p
+                    old_params[_param_key(p, orig_path)] = p
 
         new_params: dict[tuple[str, str], dict[str, Any]] = {}
         if isinstance(new_params_raw, list):
             for p in new_params_raw:
                 if isinstance(p, dict) and "name" in p and "in" in p:
-                    new_params[(p["in"], p["name"])] = p
+                    new_params[_param_key(p, new_path)] = p
 
         # Check for newly required parameters
-        for (param_in, param_name), new_p in sorted(new_params.items()):
+        for key, new_p in sorted(new_params.items()):
+            param_in, param_name = new_p["in"], new_p["name"]
             new_req = bool(new_p.get("required", False))
-            old_p = old_params.get((param_in, param_name))
+            old_p = old_params.get(key)
             old_req = bool(old_p.get("required", False)) if old_p else False
 
             if new_req and not old_req:
@@ -266,9 +285,10 @@ class DiffEngine:
                 )
 
         # Check shared parameter schema differences (types, enums, required properties)
-        for param_in, param_name in sorted(set(old_params.keys()) & set(new_params.keys())):
-            old_p = old_params[(param_in, param_name)]
-            new_p = new_params[(param_in, param_name)]
+        for key in sorted(set(old_params.keys()) & set(new_params.keys())):
+            old_p = old_params[key]
+            new_p = new_params[key]
+            param_in, param_name = new_p["in"], new_p["name"]
             old_s = old_p.get("schema")
             new_s = new_p.get("schema")
             if isinstance(old_s, dict) and isinstance(new_s, dict):
